@@ -1,15 +1,11 @@
-ACCOUNTS=["GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"]
+# stellar.toml for PHX
 
-[DOCUMENTATION]
-ORG_NAME="PHX"
-ORG_URL="https://minephx.cloud"
-ORG_LOGO="https://minephx.cloud/logo.svg"
-ORG_DESCRIPTION="Phoenix X Currency is a fully decentralized currency, designed for easy and accessible mining by anyone."
+ACCOUNTS=["GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"]
+DOCUMENTATION="https://github.com/signlee789/phx"
 
 [[CURRENCIES]]
 code="PHX"
 issuer="GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"
-display_decimals=4
-name="Phoenix X Currency"
-desc="Phoenix X Currency is a fully decentralized currency, designed for easy and accessible mining by anyone."
-image="https://minephx.cloud/logo.svg"
+name="PHX"
+desc="PHX is a decentralized digital currency designed for fair participation through a Proof of Daily Engagement model. It allows web-based mining without special hardware, focusing on accessibility and sustainable community growth."
+image="https://phxlast-34481.web.app/logo.svg"
