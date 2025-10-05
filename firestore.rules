@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Admin UID ---
+    function isAdmin() {
+      return request.auth.uid == 'gu2dcY575mONgAkSFhlhidH550n2';
+    }
+
+    // --- Settings Collection (NEW) ---
+    match /settings/{settingId} {
+      // Allow any authenticated user to read settings (like withdrawal status).
+      // Only admins can change settings.
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // --- Announcements Collection ---
+    match /announcements/{announcementId} {
+      // Allow anyone to read.
+      allow read: if true;
+      // Only admins can write, update, or delete.
+      allow write, update, delete: if isAdmin();
+    }
+
+    // --- Users Collection (FIXED) ---
+    match /users/{userId} {
+      // Users can GET their own document. Admins can get any.
+      allow get: if request.auth.uid == userId || isAdmin();
+      // Only Admins can LIST all users.
+      allow list: if isAdmin();
+      // Users can WRITE to their own document.
+      allow write: if request.auth.uid == userId;
+
+      // Anyone authenticated can read the referred users subcollection.
+      match /referredUsers/{docId} {
+        allow read: if request.auth != null;
+      }
+    }
+
+    // --- Verified KYC Addresses Collection ---
+    match /verifiedKycAddresses/{walletAddress} {
+      // Allow function to check for existence.
+      allow get: if request.auth != null;
+      // Only an admin can list all documents or write to them.
+      allow list, write: if isAdmin(); 
+    }
+
+    // --- Submitted KYC Addresses Collection ---
+    match /submittedKycAddresses/{walletAddress} {
+        // Allow function to check for existence and create new submissions.
+        allow get, create: if request.auth != null;
+        // Only an admin can list all documents, update, or delete.
+        allow list, update, delete: if isAdmin();
+    }
+    
+    // --- KYC Image Uploads Collection (Example for future use) -- -
+    match /kycImageUploads/{uploadId} {
+        // User can only create records linked to their own UID.
+        allow create: if request.auth.uid == request.resource.data.uid;
+        // Only admin can read the metadata.
+        allow read: if isAdmin();
+    }
+
+    // --- Withdrawals Collection ---
+    match /withdrawals/{withdrawalId} {
+      // Users can create requests for themselves.
+      allow create: if request.auth.uid == request.resource.data.uid;
+      // Admins can fully manage.
+      allow get, list, update, delete: if isAdmin();
+    }
+
+    // --- P2P Disputes Collection ---
+    match /p2p_disputes/{disputeId} {
+      // Admins can fully manage.
+      allow get, list, update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,348 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHX Mining</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="fire-icon.svg">
+    <meta name="theme-color" content="#1F1A24"/>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <img src="/logo.svg" alt="PHX Logo">
+    </div>
+
+    <!-- Auth Wrapper -->
+    <div id="auth-wrapper" class="hidden">
+        <div id="auth-loading">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form" class="auth-form hidden">
+            <h2>🔥 PHX MINNING</h2>
+            <form id="login-form-inner">
+                <input type="email" id="login-email" placeholder="Email" required>
+                <input type="password" id="login-password" placeholder="Password" required>
+                <button type="submit">Login</button>
+                <p id="login-error" class="error-message"></p>
+            </form>
+            <p>Don't have an account? <a href="#" id="show-signup">Sign up</a></p>
+            <p><a href="#" id="show-password-reset">Forgot Password?</a></p>
+        </div>
+
+        <!-- Signup Form -->
+        <div id="signup-form" class="auth-form hidden">
+            <h2>🔥 PHX MINNING</h2>
+            <form id="signup-form-inner">
+                <input type="email" id="signup-email" placeholder="Email" required>
+                <input type="password" id="signup-password" placeholder="Password" required>
+                <input type="password" id="signup-password-confirm" placeholder="Confirm Password" required>
+                <input type="text" id="referral-code-input" placeholder="Referral Code (Optional)">
+                <button type="submit">Sign Up</button>
+                <p id="signup-error" class="error-message"></p>
+            </form>
+            <p>Already have an account? <a href="#" id="show-login-from-signup">Login</a></p>
+        </div>
+
+        <!-- Password Reset Form -->
+        <div id="password-reset-form" class="auth-form hidden">
+            <h2>Reset Password</h2>
+            <form id="password-reset-form-inner">
+                <input type="email" id="password-reset-email" placeholder="Enter your email" required>
+                <button type="submit">Send Reset Email</button>
+                <p id="password-reset-error" class="error-message"></p>
+            </form>
+            <p><a href="#" id="show-login-from-reset">Back to Login</a></p>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app-container" class="hidden">
+
+        <!-- Ad Container -->
+        <div style="text-align: center; min-height: 110px; padding: 10px 0;">
+            <iframe data-aa='2412469' src='//acceptable.a-ads.com/2412469/?size=Adaptive&background_color=1F1A24&title_color=FFA500&title_hover_color=FDB813&text_color=E0E0E0&link_color=82B1FF&link_hover_color=BBDEFB'
+                    style='border:0; padding:0; max-width:728px; width:100%; height:auto; min-height: 90px; overflow:hidden; display:inline-block;'></iframe>
+        </div>
+
+        <header>
+            <h1>🔥 PHX</h1>
+            <div class="header-controls">
+                <span id="user-email-display"></span>
+                <button id="settings-button" class="text-button">Settings</button>
+            </div>
+        </header>
+        
+        <main>
+
+            <nav id="main-nav">
+                <button class="nav-button active" data-section="mining-section">Mining</button>
+                <button class="nav-button" data-section="wallet-section">Wallet</button>
+                <button class="nav-button" data-section="referral-section">Referrals</button>
+                <button class="nav-button" data-section="info-section">Info</button>
+                <button id="admin-nav-button" class="nav-button hidden" data-section="admin-section">Admin</button>
+            </nav>
+            
+            <div class="content-wrapper">
+
+                <!-- Mining Section -->
+                <section id="mining-section" class="app-section">
+                    <div class="overview-card">
+                        <p>Total Balance</p>
+                        <h2 id="coin-count">0.0000<span>PHX</span></h2>
+                    </div>
+                    <div class="overview-card">
+                        <p>Mining Session</p>
+                        <button id="mine-button" disabled>Mine PHX</button>
+                        <div id="mine-timer">Loading...</div>
+                    </div>
+                    <!-- Graph Card -->
+                    <div class="overview-card">
+                        <p>PHX Total Supply Trend</p>
+                        <canvas id="phx-supply-chart"></canvas>
+                        <p id="chart-error-message" class="error-message hidden"></p>
+                    </div>
+                </section>
+
+                <!-- Wallet Section -->
+                <section id="wallet-section" class="app-section hidden">
+                    <div class="overview-card">
+                        <p>Withdrawable Balance</p>
+                        <h2 id="withdrawable-balance">0.0000<span>PHX</span></h2>
+                        <p class="balance-description">Mined PHX + Verified Referral PHX</p>
+                    </div>
+                    <div class="withdrawal-card">
+                        <p>Withdrawal</p>
+                        <form id="withdrawal-form">
+                            <input type="number" id="withdrawal-amount" placeholder="Amount (Min: 37.07, Fee: 0.1 PHX)" step="0.0001" required>
+                            <button id="withdraw-button" type="submit" disabled>Request Withdrawal</button>
+                        </form>
+                        <p id="withdrawal-message" class="message info-text">Withdrawals are enabled after 170 mining sessions and KYC verification. Requests are processed during scheduled migration periods. The first migration is planned to align with the CEX/DEX listing date.</p>
+                    </div>
+                </section>
+
+                <!-- Referral Section -->
+                <section id="referral-section" class="app-section hidden">
+                     <div class="overview-card">
+                        <p>Unverified Referral Bonus</p>
+                        <h2 id="referral-unverified-balance">0.0000<span>PHX</span></h2>
+                        <p class="balance-description">This bonus will become withdrawable after your referrals complete KYC.</p>
+                    </div>
+                    <div class="referral-code-card">
+                        <p>Your Referral Link</p>
+                        <div class="code-box">
+                            <span id="referral-code-display">Loading...</span>
+                            <button id="copy-code-button">Copy Code</button>
+                        </div>
+                        <button id="copy-link-button">Copy Full Link</button>
+                        <p id="copy-status-message" class="message"></p>
+                    </div>
+
+                    <div id="referred-users-container" class="referred-users-card">
+                        <p>Referred Users <span id="referred-users-count"></span></p>
+                        <ul id="referred-users-list">
+                            <!-- User items will be dynamically inserted here -->
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Settings Section -->
+                <section id="settings-section" class="app-section hidden">
+                    <h3>Settings</h3>
+                    <div class="settings-card">
+                        <h4>New to Pi Network?</h4>
+                        <p class="info-text">You need a KYC-verified Pi Network account to get verified on PHX. Join Pi today!</p>
+                        <a href="https://minepi.com/signlee" target="_blank" id="join-pi-button">Join Pi Network</a>
+                    </div>
+
+                     <div class="settings-card">
+                        <h4>Pi Network KYC Verification</h4>
+                        <p id="kyc-status-detail">Verification status will be shown here.</p>
+                        <div id="kyc-rules-box" class="warning-box">
+                            <strong>⚠️ Important KYC Rules:</strong>
+                            1. A wallet address submitted for KYC can <b>NEVER be used again</b>, for any reason.<br>
+                            2. Ensure the address is from a <b>Pi Mainnet wallet</b> where you have completed KYC & Migration.<br>
+                            3. If your request is rejected, you must wait <b>60 days</b> before submitting a <b>NEW</b> wallet address.
+                        </div>
+                        <form id="kyc-address-form" style="margin-top: 1rem;">
+                            <input type="text" id="kyc-wallet-address-input" placeholder="Enter your Pi Mainnet wallet address for verification" required>
+                            <button type="submit">Submit for KYC</button>
+                            <p id="kyc-message" class="message"></p>
+                        </form>
+                    </div>
+
+                    <div class="settings-card">
+                        <h4>PHX (Stellar) Wallet Address</h4>
+                        <p class="info-text">Please create a Stellar wallet using a provider like LOBSTR or Solar. Before you can receive PHX, you must add a trustline for the PHX asset.</p>
+                        <div class="warning-box">
+                            <strong>⚠️ Trustline Required:</strong>
+                            Failure to do so will result in the <b>burning of any PHX</b> sent to your address. Please ensure you have added the trustline before submitting your address.
+                        </div>
+                        <p class="info-text" style="margin-top: 1rem; margin-bottom: 0.5rem;"><strong>PHX Asset Issuer:</strong></p>
+                        <div class="code-box">
+                           <span id="issuer-address">GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW</span>
+                           <button type="button" id="copy-issuer-button">Copy</button>
+                        </div>
+                        <p id="copy-issuer-status-message" class="message" style="height: 1.2em; margin-top: 0.5rem;"></p>
+                        <form id="phx-wallet-address-form" style="margin-top: 1rem;">
+                            <input type="text" id="phx-wallet-address-input" placeholder="G..." required>
+                            <button type="submit">Save Address</button>
+                            <p id="phx-wallet-message" class="message"></p>
+                        </form>
+                    </div>
+                    <div class="settings-card">
+                        <button id="logout-button" class="text-button">Logout</button>
+                    </div>
+                </section>
+
+                <!-- Admin Section -->
+                <section id="admin-section" class="app-section hidden">
+                    <!-- Admin content is loaded and managed by admin.js -->
+                    <iframe src="/admin.html" id="admin-iframe"></iframe>
+                </section>
+
+                <!-- Info Section -->
+                <section id="info-section" class="app-section hidden">
+                    <div id="info-navigation">
+                        <h3>Info</h3>
+                        <div class="settings-card info-nav-card" data-target="announcements-content">
+                            <h4>Announcements</h4>
+                            <p>Read the latest project updates.</p>
+                        </div>
+                        <div class="settings-card info-nav-card" data-target="whitepaper-content">
+                            <h4>White Paper</h4>
+                            <p>Read the technical document.</p>
+                        </div>
+                        <div class="settings-card info-nav-card" data-target="about-content">
+                            <h4>About</h4>
+                            <p>Learn more about the project and how to contact us.</p>
+                        </div>
+                        <!--
+                        <div class="settings-card info-nav-card" data-target="ai-assistant-content">
+                            <h4>AI Assistant</h4>
+                            <p>Coming soon.</p>
+                        </div>
+                        -->
+                    </div>
+
+                    <div id="announcements-content" class="info-content-page hidden">
+                        <button class="back-to-info-btn text-button">← Back</button>
+                        <h4>Announcements</h4>
+                        <div id="announcements-list"></div>
+                    </div>
+
+                    <div id="whitepaper-content" class="info-content-page hidden" style="text-align: left;">
+                        <div class="whitepaper-header">
+                            <button class="back-to-info-btn text-button">← Back</button>
+                        </div>
+                        <div class="settings-card" style="padding: 20px;">
+                            <h3 style="text-align: left; font-weight: bold;">PHX: Decentralized,<br>Merit-Based Digital Currency</h3>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">Abstract</h4>
+                            <p>PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment. It introduces a Proof of Daily Engagement (PoDE) model, enabling any user with internet access to mine coins. PHX operates through a fully web-based platform, removing dependency on app stores and centralized distribution channels, highlighting the vision of Web 3.0 and full decentralization.</p>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">1. Introduction</h4>
+                            <p>Modern financial systems have long been dominated by centralized institutions, concentrating trust and control in the hands of a few. Blockchain technology introduced decentralized systems, enabling anyone to participate without intermediaries. However, even existing cryptocurrencies face barriers such as high hardware costs and capital concentration. PHX addresses these limitations by providing equal opportunity participation through a web-based platform.</p>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">2. Philosophy</h4>
+                            <p>PHX is based on three core principles:</p>
+                            <ul style="list-style-type: disc; padding-left: 2rem;">
+                                <li>Full Decentralization: Eliminating dependencies on app stores and centralized servers to ensure neutrality and openness.</li>
+                                <li>Fair Distribution: Ensuring that early investors or developers do not monopolize benefits. Rewards are distributed equally based on participation.</li>
+                                <li>Sustainable Ecosystem: PoDE encourages habitual engagement, strengthening long-term network security and community cohesion.</li>
+                            </ul>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">3. Mechanism: Proof of Daily Engagement (PoDE)</h4>
+                            <p>PoDE differs from traditional consensus mechanisms:</p>
+                            <ul style="list-style-type: disc; padding-left: 2rem;">
+                                <li>Proof of Work (PoW): Requires expensive hardware and high energy consumption.</li>
+                                <li>Proof of Stake (PoS): Concentrates power in proportion to capital held.</li>
+                                <li>PoDE: Allows daily participation via simple web interaction, independent of hardware or capital.</li>
+                            </ul>
+                            <p style="margin-top: 1rem;">Advantages include low-cost participation, habit formation for users, and Sybil attack resistance through mandatory KYC verification. Technically, the backend records daily user participation, and only after meeting engagement thresholds are tokens released. All settlements occur on the Stellar blockchain for transparency.</p>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">4. Accessibility & Platform Architecture</h4>
+                            <p>PHX operates entirely on the web, accessible from PCs, smartphones, and tablets. It avoids dependencies on Android or iOS app stores, ensuring independence and alignment with Web 3.0 principles.</p>
+                            <p style="margin-top: 1rem;">Advantages:</p>
+                            <ul style="list-style-type: disc; padding-left: 2rem;">
+                                <li>Global accessibility</li>
+                                <li>Rapid updates without centralized approval</li>
+                                <li>Adherence to decentralized ideals</li>
+                            </ul>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">5. Token Issuance & Distribution Model</h4>
+                            <ul style="list-style-type: disc; padding-left: 2rem;">
+                                <li>Total Supply: 21,000,000 PHX (fixed, no additional issuance).</li>
+                                <li>Daily Mining Rewards: Consistent with gradual reduction to simulate scarcity and encourage early participation.</li>
+                                <li>Referral Rewards: Incentivize organic growth, released only after KYC verification.</li>
+                                <li>Long-Term Participation: Minimum 170 daily sessions required before withdrawals.</li>
+                            </ul>
+                            <p style="margin-top: 1rem;">This design discourages speculative short-term behavior and rewards sustained network engagement.</p>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">6. Security & Threat Model</h4>
+                            <ul style="list-style-type: disc; padding-left: 2rem;">
+                                <li>Sybil Attacks: Prevented via mandatory KYC verification.</li>
+                                <li>Bot Automation: Mitigated by requiring manual daily engagement.</li>
+                                <li>Wealth Centralization: Controlled by fixed supply and participation-based distribution.</li>
+                            </ul>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">7. Roadmap</h4>
+                            <ol style="list-style-type: decimal; padding-left: 2rem;">
+                                <li>Phase 1: Web-Based Platform Launch & PoDE Implementation</li>
+                                <li>Phase 2: Global Expansion Campaign & Referral System Enhancement</li>
+                                <li>Phase 3: Decentralized Exchange (DEX) Listing</li>
+                                <li>Phase 4: Governance Features Implementation & Ecosystem Expansion</li>
+                            </ol>
+                            
+                            <h4 style="margin-top: 1.5rem; font-weight: bold;">8. Conclusion</h4>
+                            <p>PHX is more than a cryptocurrency; it represents a participation-based economic system and a fully decentralized network accessible to anyone. By leveraging web-based accessibility and the PoDE model, PHX enables fair participation globally, free from technical or financial barriers.</p>
+                            
+                            <p style="text-align: left; margin-top: 2rem;">PHX = Accessibility + Fairness + Sustainability</p>
+                        </div>
+                    </div>
+                    
+                    
+                    <div id="about-content" class="info-content-page hidden">
+                        <button class="back-to-info-btn text-button">← Back</button>
+                        <h4>About PHX</h4>
+                        <p>PHX is a digital currency project designed to be accessible to everyone. Our goal is to create a simple, secure, and merit-based cryptocurrency that can be earned by users through daily engagement.</p>
+                        <p>We believe in a decentralized future where financial power is distributed among the people. By leveraging the Stellar network and a unique Proof of Daily Engagement model, we are building a fair and inclusive platform for the next generation of digital currency users.</p>
+                        
+                        <h5>Contact Information</h5>
+                        <p>For any questions, support, or inquiries, please feel free to contact us at:</p>
+                        <p><strong>Email:</strong> <a href="mailto:phoenixXcurrency@gmail.com">phoenixXcurrency@gmail.com</a></p>
+                        <p><strong>X (Twitter):</strong> <a href="https://x.com/phoenixXCteam" target="_blank">@phoenixXCteam</a></p>
+                    </div>
+
+                    <!--
+                    <div id="ai-assistant-content" class="info-content-page hidden">
+                         <button class="back-to-info-btn text-button">← Back</button>
+                        <h4>AI Assistant</h4>
+                        <p class="info-text" style="margin-bottom: 1rem;">This feature will be available in a future update.</p>
+                        <form id="ai-assistant-form">
+                            <textarea id="ai-prompt" placeholder="The AI Assistant is not yet active." disabled></textarea>
+                            <button id="ai-submit-button" type="submit" disabled>Ask AI</button>
+                            <div id="ai-response"></div>
+                        </form>
+                    </div>
+                    -->
+                </section>
+
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="main.js"></script>
+    
+</body>
+</html>

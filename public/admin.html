@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHX Admin</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <div id="admin-app-container">
+        <!-- Auth container will be managed by JS -->
+
+        <header>
+            <h1>PHX Admin Dashboard</h1>
+            <div id="admin-user-info">
+                <span id="admin-email-display"></span>
+                <button id="admin-logout-button">Logout</button>
+            </div>
+        </header>
+
+        <main>
+            <nav id="main-nav">
+                <button class="nav-button active" data-section="kyc-requests-section">KYC Requests</button>
+                <button class="nav-button" data-section="withdrawal-requests-section">Withdrawal Requests</button>
+                <button class="nav-button" data-section="announcements-section">Announcements</button>
+                <button class="nav-button" data-section="graph-data-section">Graph Data</button>
+            </nav>
+
+            <div class="content-wrapper">
+                <!-- KYC Requests Section -->
+                <section id="kyc-requests-section" class="admin-section">
+                    <h2>Pending KYC Requests</h2>
+                    <div class="admin-card">
+                        <div class="table-container">
+                            <table id="kyc-requests-table">
+                                <thead>
+                                    <tr>
+                                        <th>User Email</th>
+                                        <th>Wallet Address</th>
+                                        <th>User ID</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kyc-requests-table-body">
+                                    <!-- JS will populate this -->
+                                </tbody>
+                            </table>
+                            <p id="no-kyc-requests-message" class="empty-table-message hidden">No pending KYC requests.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Withdrawal Requests Section -->
+                <section id="withdrawal-requests-section" class="admin-section hidden">
+                    <h2>Pending Withdrawal Requests</h2>
+                    <div class="admin-card">
+                        <div class="controls-bar">
+                            <button id="export-withdrawals-csv-admin">Export as CSV</button>
+                            <button id="approve-all-withdrawals-btn">Approve All</button>
+                        </div>
+                        <div class="table-container">
+                            <table id="withdrawal-requests-table">
+                                <thead>
+                                    <tr>
+                                        <th>Email</th>
+                                        <th>Destination</th>
+                                        <th>Amount</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="withdrawal-requests-table-body">
+                                    <!-- JS will populate this -->
+                                </tbody>
+                            </table>
+                             <p id="no-withdrawal-requests-message" class="empty-table-message hidden">No pending withdrawal requests.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Announcements Section -->
+                <section id="announcements-section" class="admin-section hidden">
+                    <h2>Manage Announcements</h2>
+                    <div class="admin-card">
+                        <form id="announcement-form-container">
+                             <input type="text" id="announcement-title" placeholder="Announcement Title" required>
+                             <textarea id="announcement-content" placeholder="Announcement Content" required></textarea>
+                             <button type="submit" id="announcement-submit-btn">Add Announcement</button>
+                        </form>
+                    </div>
+                    <div class="admin-card">
+                        <h3>Current Announcements</h3>
+                        <div class="table-container">
+                            <table id="announcements-table">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Content</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="announcements-table-body">
+                                    <!-- JS will populate this -->
+                                </tbody>
+                            </table>
+                            <p id="no-announcements-message" class="empty-table-message hidden">No announcements found.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Graph Data Section -->
+                <section id="graph-data-section" class="admin-section hidden">
+                    <h2>PHX Supply Graph</h2>
+                     <div class="admin-card">
+                        <h3>Calculate Remaining Supply</h3>
+                        <button id="calculate-supply-btn">Calculate Now</button>
+                        <div id="supply-results-container" class="hidden">
+                            <p><strong>Total Circulating Supply:</strong> <span id="total-circulating-supply"></span></p>
+                            <p><strong>Remaining Supply for Minting:</strong> <span id="remaining-supply"></span></p>
+                        </div>
+                    </div>
+                    <div class="admin-card">
+                        <h3>Add New Data Point</h3>
+                        <form id="graph-data-form-container">
+                            <label for="graph-date">Date:</label>
+                            <input type="date" id="graph-date-input" required>
+                            <label for="graph-phx-value">PHX Value (Total Supply):</label>
+                            <input type="number" id="graph-phx-input" placeholder="Enter total PHX supply" required>
+                            <button type="submit" id="graph-data-submit-btn">Save Data Point</button>
+                        </form>
+                        <p id="graph-data-message" class="message"></p>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Auth container to be shown when logged out -->
+    <div id="admin-auth-container" class="hidden">
+         <div class="auth-card">
+            <h2>Admin Login</h2>
+            <input type="email" id="admin-email-input" placeholder="Email">
+            <input type="password" id="admin-password-input" placeholder="Password">
+            <button id="admin-login-button">Login</button>
+            <p id="admin-auth-error" class="error-message"></p>
+        </div>
+    </div>
+
+    <script type="module" src="admin.js"></script>
+</body>
+</html>

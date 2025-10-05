@@ -1,0 +1,758 @@
+
+/* Splash Screen */
+#splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #1F1A24;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 0.5s ease-in-out;
+}
+
+#splash-screen img {
+    width: 200px;
+    height: 200px;
+}
+
+#splash-screen.fade-out {
+    opacity: 0;
+}
+
+
+/* General Body Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1F1A24;
+    color: #F0F0F0;
+    margin: 0;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Containers */
+#auth-wrapper, #app-container {
+    width: 100%;
+    max-width: 480px;
+    padding: 1.5rem;
+    background-color: #2D2636;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+}
+
+#app-container {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #443B52;
+    padding-bottom: 1rem;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #FFA500; /* Orange accent for the fire emoji */
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#user-email-display {
+    font-size: 0.9rem;
+    color: #C0C0C0;
+}
+
+/* Navigation */
+#main-nav {
+    display: flex;
+    justify-content: space-around;
+    background-color: #393046;
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.nav-button {
+    flex-grow: 1;
+    padding: 0.75rem 0.5rem;
+    background-color: transparent;
+    border: none;
+    color: #F0F0F0;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.3s, color 0.3s;
+    text-align: center;
+}
+
+.nav-button:hover {
+    background-color: #4A3F5C;
+}
+
+.nav-button.active {
+    background-color: #FFA500;
+    color: #1F1A24;
+}
+
+/* Content Sections */
+.content-wrapper {
+    width: 100%;
+}
+
+.app-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Cards */
+.overview-card, .mining-card, .referral-code-card, .withdrawal-card, .referred-users-card, .settings-card, .admin-card, .p2p-card {
+    background-color: #393046;
+    padding: 1.5rem;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.overview-card p, .withdrawal-card p, .referral-code-card p, .settings-card p, .p2p-card p {
+    margin: 0 0 0.5rem 0;
+    color: #C0C0C0;
+    font-size: 1rem;
+}
+
+.overview-card h2 {
+    margin: 0;
+    font-size: 2.5rem;
+    color: #FFFFFF;
+}
+
+.overview-card h2 span {
+    font-size: 1.2rem;
+    color: #FFA500;
+    margin-left: 0.5rem;
+}
+
+.balance-description {
+    font-size: 0.8rem !important;
+    color: #A0A0A0 !important;
+    margin-top: 0.5rem !important;
+}
+
+/* Mining Section */
+.mining-card h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+#mine-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #FFA500;
+    color: #1F1A24;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+#mine-button:disabled {
+    background-color: #5A5A5A;
+    color: #888888;
+    cursor: not-allowed;
+}
+
+#mine-button:not(:disabled):hover {
+    background-color: #FFC14D;
+}
+
+#mine-button:not(:disabled):active {
+    transform: scale(0.98);
+}
+
+#mine-timer {
+    margin-top: 1rem;
+    font-size: 1rem;
+    color: #C0C0C0;
+}
+
+/* P2P Card */
+#p2p-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #FFA500;
+    color: #1F1A24;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+#p2p-button:disabled {
+    background-color: #5A5A5A;
+    color: #888888;
+    cursor: not-allowed;
+}
+
+
+/* Referral Section & Issuer Code Box */
+.code-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #2D2636;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border: 1px solid #443B52; /* Added border for better visibility */
+}
+
+.code-box span {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1rem;
+    color: #F0F0F0;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    margin-right: 1rem;
+    flex-grow: 1;
+}
+
+.code-box button {
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    border: 1px solid #FFA500;
+    background-color: transparent;
+    color: #FFA500;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+    font-weight: 500;
+}
+
+.code-box button:hover {
+    background-color: #FFA500;
+    color: #1F1A24;
+}
+
+#copy-link-button {
+    width: 100%;
+    margin-top: 0.5rem;
+    background-color: #FFA500;
+    color: #1F1A24;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+
+.referred-users-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.referred-users-card li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #443B52;
+}
+.referred-users-card li:last-child {
+    border-bottom: none;
+}
+
+.kyc-status {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-align: center;
+}
+
+.kyc-status.verified {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.kyc-status.unverified {
+    background-color: #f44336;
+    color: white;
+}
+
+.kyc-status.pending {
+    background-color: #ff9800;
+    color: white;
+}
+
+/* Settings Section */
+#join-pi-button {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    background-color: #FFA500;
+    color: #1F1A24;
+    border-radius: 8px;
+    text-decoration: none;
+    margin-top: 1rem;
+    transition: background-color 0.3s;
+    box-sizing: border-box; /* Fix for the button overflow */
+}
+
+#join-pi-button:hover {
+    background-color: #FFC14D;
+}
+
+/* Info Section */
+#info-navigation {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.info-nav {
+    display: flex;
+    background-color: #393046;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.info-nav-button {
+    flex-grow: 1;
+    padding: 0.75rem 0.5rem;
+    background-color: transparent;
+    border: none;
+    color: #F0F0F0;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.info-nav-button.active {
+    background-color: #4A3F5C;
+}
+
+.info-content {
+    background-color: #393046;
+    padding: 1.5rem;
+    border-radius: 10px;
+}
+
+.info-content h4 {
+    margin-top: 0;
+    border-bottom: 1px solid #443B52;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.info-content p, .info-content li, .info-content h5 {
+    line-height: 1.6;
+    color: #D0D0D0;
+}
+
+.info-content h5 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #FFA500;
+}
+
+.info-content ul, .info-content ol {
+    padding-left: 20px;
+}
+
+/* AI Assistant */
+#ai-assistant-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#ai-prompt {
+    width: 100%;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
+#ai-response {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #2D2636;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+/* Auth Forms */
+.auth-form {
+    text-align: center;
+}
+
+.auth-form h2 {
+    color: #FFA500;
+    margin-bottom: 2rem;
+}
+
+.auth-form form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+input[type="email"], input[type="password"], input[type="text"], input[type="number"], textarea {
+    padding: 0.9rem;
+    background-color: #1F1A24;
+    border: 1px solid #443B52;
+    border-radius: 6px;
+    color: #F0F0F0;
+    font-size: 1rem;
+}
+
+input::placeholder, textarea::placeholder {
+    color: #888888;
+}
+
+button, .text-button {
+    padding: 0.9rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+
+.auth-form p {
+    margin-top: 1.5rem;
+    color: #C0C0C0;
+}
+
+.auth-form a {
+    color: #FFA500;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-form a:hover {
+    text-decoration: underline;
+}
+
+/* Messages & Spinners */
+.error-message {
+    color: #ff6b6b;
+    min-height: 1.2em;
+}
+
+.message {
+    min-height: 1.2em;
+}
+
+.info-text {
+    font-size: 0.8rem !important;
+    color: #A0A0A0 !important;
+}
+
+.warning-box {
+    background-color: #f44336;
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    line-height: 1.5;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.warning-box strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+
+#auth-loading {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid #FFA500;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Withdrawal & Settings Forms (Large Style) */
+#withdrawal-form, .settings-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#withdrawal-amount, .settings-card form input[type="text"] {
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    text-align: center;
+    background-color: #1F1A24;
+    border: 1px solid #443B52;
+    border-radius: 8px;
+    color: #F0F0F0;
+}
+
+#withdrawal-amount {
+    -moz-appearance: textfield;
+}
+
+#withdrawal-amount::-webkit-outer-spin-button,
+#withdrawal-amount::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#withdrawal-amount::placeholder, .settings-card form input[type="text"]::placeholder {
+    color: #888888;
+    font-weight: normal;
+    font-size: 0.9rem;
+}
+
+#withdraw-button, .settings-card form button[type="submit"] {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #FFA500;
+    color: #1F1A24;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+    box-sizing: border-box;
+}
+
+#withdraw-button:disabled, .settings-card form button[type="submit"]:disabled {
+    background-color: #5A5A5A;
+    color: #888888;
+    cursor: not-allowed;
+}
+
+#withdraw-button:not(:disabled):hover, .settings-card form button[type="submit"]:not(:disabled):hover {
+    background-color: #FFC14D;
+}
+
+#withdraw-button:not(:disabled):active, .settings-card form button[type="submit"]:not(:disabled):active {
+    transform: scale(0.98);
+}
+
+button[type="submit"] {
+    background-color: #FFA500;
+    color: #1F1A24;
+    font-weight: bold;
+}
+
+.text-button {
+    background-color: transparent;
+    color: #FFA500;
+    text-decoration: underline;
+}
+
+/* Admin Section */
+.admin-card {
+    text-align: left;
+}
+
+.admin-card h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #443B52;
+    padding-bottom: 0.5rem;
+}
+
+.admin-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.admin-card li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-bottom: 1px solid #443B52;
+}
+
+.admin-card li:last-child {
+    border-bottom: none;
+}
+
+.admin-card .user-info {
+    font-size: 0.9rem;
+    word-wrap: break-word;
+}
+
+.admin-card .user-info strong {
+    color: #C0C0C0;
+}
+
+.admin-card .wallet-address {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.95rem;
+    background: #2D2636;
+    padding: 0.5rem;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+.admin-card .actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.admin-card .actions button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+.admin-card .approve-btn {
+    background-color: #4CAF50; /* Green */
+    color: white;
+}
+
+.admin-card .reject-btn {
+    background-color: #f44336; /* Red */
+    color: white;
+}
+
+.admin-card .withdrawal-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    background: #2D2636;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+}
+
+.admin-card .withdrawal-info .amount {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #FFA500;
+}
+
+/* Admin Page Layout Override */
+#admin-app-container {
+    max-width: 1200px; /* Wider container for admin dashboard */
+}
+
+/* PHX Supply Chart */
+#phx-supply-chart {
+    height: 150px !important;
+}
+
+/* White Paper Viewer - PDF.js Renderer */
+.info-content-page#whitepaper-content {
+    padding: 1rem;
+}
+
+.whitepaper-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+#download-whitepaper-btn {
+    padding: 0.5rem 1rem;
+    background-color: #FFA500;
+    color: #1F1A24;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: background-color 0.3s;
+}
+
+#download-whitepaper-btn:hover {
+    background-color: #FFC14D;
+}
+
+#pdf-container {
+    /* Styles for the rendered canvas pages are applied directly via JS */
+    background-color: #393046; /* Match the card background */
+    border-radius: 10px;
+    padding: 1rem; /* Add some padding around the rendered pages */
+}
+
+#logout-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+    margin-top: 1rem;
+}
+
+#logout-button:hover {
+    background-color: #d32f2f;
+}
+
+#logout-button:active {
+    transform: scale(0.98);
+}
+
+#whitepaper-content .settings-card {
+    text-align: left;
+}

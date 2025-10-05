@@ -1,0 +1,16 @@
+
+{
+  "name": "PHX Mining",
+  "short_name": "PHX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1F1A24",
+  "theme_color": "#1F1A24",
+  "icons": [
+    {
+      "src": "fire-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

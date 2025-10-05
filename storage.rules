@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to read and write their own KYC submission files.
+    match /kyc-submissions/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId
+                         && request.resource.size < 5 * 1024 * 1024; // Max 5MB
+    }
+
+    // You can add other rules for other parts of your storage here.
+    // For example, allowing public read for profile pictures:
+    // match /profile-pics/{userId}/{allPaths=**} {
+    //   allow read;
+    //   allow write: if request.auth != null && request.auth.uid == userId;
+    // }
+  }
+}

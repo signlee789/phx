@@ -1,0 +1,238 @@
+/*
+  PHX Landing Page Stylesheet - v5 (Final Design)
+*/
+
+html {
+    scroll-behavior: smooth;
+}
+
+:root {
+    --primary-color: #2c1a4d; /* Deep Purple */
+    --secondary-color: #462575; /* Lighter Purple */
+    --accent-color: #FDB813;   /* Gold/Yellow Accent */
+    --text-color: #F3F4F6;     /* Light Grey/Off-white */
+    --dark-text: #1F2937;
+}
+
+body {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    margin: 0;
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Header */
+.landing-header {
+    padding: 20px 0;
+    background: rgba(0,0,0,0.1);
+}
+
+.landing-header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo img {
+    height: 40px;
+}
+
+.logo h1 {
+    font-size: 28px;
+    margin: 0;
+    font-weight: 700;
+}
+
+.landing-header nav {
+    display: flex;
+    gap: 30px;
+}
+
+.landing-header nav a {
+    text-decoration: none;
+    color: var(--text-color);
+    font-size: 16px;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.landing-header nav a:hover {
+    color: var(--accent-color);
+}
+
+/* Hero Section */
+.hero {
+    text-align: center;
+    padding: 80px 20px;
+    background: radial-gradient(circle, var(--secondary-color) 0%, var(--primary-color) 70%);
+}
+
+.hero h2 {
+    font-size: 48px;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.hero p {
+    font-size: 18px;
+    max-width: 550px;
+    line-height: 1.6;
+    margin: 0 auto 30px auto;
+    opacity: 0.9;
+}
+
+.btn-launch-main, .btn-download {
+    display: inline-block;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--dark-text);
+    background-color: var(--accent-color);
+    padding: 14px 35px;
+    border-radius: 8px;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.btn-launch-main:hover, .btn-download:hover {
+    background-color: #ffca28;
+    transform: translateY(-2px);
+}
+
+.btn-download {
+    margin-top: 20px;
+}
+
+/* Generic Section Styling */
+.about-section, .features-section, .app-download-section {
+    padding: 70px 20px;
+}
+
+.about-section .container, .features-section .container, .app-download-section .container {
+    max-width: 900px;
+    text-align: center;
+}
+
+.about-section {
+    background-color: rgba(0,0,0,0.15);
+}
+
+h3 {
+    font-size: 36px;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+p {
+    line-height: 1.7;
+    opacity: 0.9;
+    font-size: 16px;
+}
+
+.btn-secondary {
+    display: inline-block;
+    text-decoration: none;
+    margin-top: 20px;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--accent-color);
+    border: 2px solid var(--accent-color);
+    padding: 10px 25px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background-color: var(--accent-color);
+    color: var(--dark-text);
+}
+
+/* Features Grid */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    margin-top: 50px;
+    text-align: left;
+}
+
+.feature-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feature-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.feature-card p {
+    font-size: 15px;
+    opacity: 0.8;
+}
+
+/* App Download Section */
+.app-download-section {
+    background-color: rgba(0,0,0,0.15); /* Match about section */
+}
+
+/* Footer */
+.landing-footer {
+    text-align: center;
+    padding: 40px 20px;
+    margin-top: 0; 
+    background-color: rgba(0,0,0,0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.footer-links {
+    margin-top: 10px;
+}
+
+.footer-links a {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    margin: 0 10px;
+    transition: color 0.2s ease;
+}
+
+.footer-links a:hover {
+    color: var(--accent-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .landing-header .container {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .landing-header nav {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .hero h2, h3 {
+        font-size: 32px;
+    }
+}
