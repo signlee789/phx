@@ -38,9 +38,9 @@ const manageKycRequest = async (data, context) => {
             } else { // action === 'reject'
                 // Also reset the wallet address to allow the user to submit a new one.
                 transaction.update(userRef, {
-                    kycStatus: 'failed', // 1. 'rejected'를 'failed'로 변경
+                    kycStatus: 'failed', // Change status to 'failed'
                     kycWalletAddress: null,
-                    kycRejectionTimestamp: admin.firestore.FieldValue.serverTimestamp() // 2. 거절 시각을 기록하는 코드 추가
+                    kycRejectionTimestamp: admin.firestore.FieldValue.serverTimestamp() // Record the rejection time
                 });
             }
         });

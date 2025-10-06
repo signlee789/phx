@@ -8,12 +8,8 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // --- Constants ---
-// 이 코드를 복사하여 functions/transactions.js 파일의 기존 출금 함수와 교체해주세요.
-
-const MIN_WITHDRAWAL_SESSIONS = 170; // 최소 채굴 세션 횟수
-const MIN_WITHDRAWAL_AMOUNT = 37.07; // 최소 인출 금액
-
-// 참고: PHX_ASSET 상수가 이미 파일 상단에 있는지 확인해주세요. 없다면 이 줄도 추가해야 합니다.
+const MIN_WITHDRAWAL_SESSIONS = 170; // Minimum number of mining sessions
+const MIN_WITHDRAWAL_AMOUNT = 37.07; // Minimum withdrawal amount
 const PHX_ASSET = new StellarSdk.Asset("PHX", "GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW");
 
 exports.requestWithdrawal = onCall(async (request) => {
@@ -24,7 +20,7 @@ exports.requestWithdrawal = onCall(async (request) => {
     const userId = request.auth.uid;
     const { amount } = request.data;
 
-    // --- 서버 측 유효성 검사 ---
+    // --- Server-side validation ---
     if (typeof amount !== "number" || amount <= 0) {
         throw new HttpsError("invalid-argument", "A valid amount must be specified.");
     }
@@ -61,15 +57,15 @@ exports.requestWithdrawal = onCall(async (request) => {
                 throw new HttpsError("failed-precondition", "Withdrawal amount exceeds your withdrawable balance.");
             }
 
-            // --- 트랜잭션 내에서 상태 업데이트 ---
+            // --- State updates within the transaction ---
             const remainingBalance = withdrawableBalance - amount;
             transaction.update(userRef, {
-                minedPhx: 0, // 채굴된 잔액 리셋
-                referralPhxVerified: remainingBalance, // 나머지는 검증된 추천 잔액으로 이동
+                minedPhx: 0, // Reset mined balance
+                referralPhxVerified: remainingBalance, // Move the remainder to the verified referral balance
                 hasPendingWithdrawal: true,
             });
 
-            // 출금 요청 문서 생성
+            // Create withdrawal request document
             const withdrawalRef = db.collection("withdrawals").doc();
             transaction.set(withdrawalRef, {
                 userId: userId,
@@ -87,9 +83,9 @@ exports.requestWithdrawal = onCall(async (request) => {
     } catch (error) {
         console.error("Withdrawal transaction failed for user:", userId, error);
         if (error instanceof HttpsError) {
-          throw error; // HttpsError는 그대로 전달
+          throw error; // Re-throw HttpsError directly
         }
-        // 그 외의 에러는 내부 서버 오류로 처리
+        // Treat other errors as internal server errors
         throw new HttpsError("internal", "An unexpected error occurred during the withdrawal process.");
     }
 });

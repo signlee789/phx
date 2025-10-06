@@ -2,7 +2,7 @@
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 
-// Firestore 인스턴스는 이 파일을 require하는 곳에서 초기화된 db를 전달받아 사용합니다.
+// The Firestore instance is passed from the requiring file, which has initialized db.
 let db;
 
 function initialize(database) {
@@ -10,7 +10,7 @@ function initialize(database) {
 }
 
 /**
- * 단일 출금 요청을 처리하는 내부 헬퍼 함수.
+ * Internal helper function to process a single withdrawal request.
  * @param {string} withdrawalId - The ID of the withdrawal document.
  * @param {string} action - 'approve' or 'reject'.
  * @param {string|null} transactionHash - The blockchain transaction hash if approving. Can be null for batch approvals.
@@ -42,7 +42,7 @@ async function processSingleWithdrawal(withdrawalId, action, transactionHash) {
             const amountToDeduct = withdrawalData.amount;
             const currentUserWithdrawable = userData.withdrawableBalance || 0;
 
-            // Safety Check: 잔액이 부족하면 자동으로 요청을 거절합니다.
+            // Safety Check: Automatically reject the request if the balance is insufficient.
             if (currentUserWithdrawable < amountToDeduct) {
                 transaction.update(userRef, { hasPendingWithdrawal: false });
                 transaction.update(withdrawalRef, {
@@ -53,17 +53,17 @@ async function processSingleWithdrawal(withdrawalId, action, transactionHash) {
                 return `Rejected withdrawal for ${withdrawalData.email} due to insufficient funds.`;
             }
 
-            // 새로운 잔액 계산
+            // Calculate the new balance
             const newWithdrawableBalance = currentUserWithdrawable - amountToDeduct;
 
-            // 사용자 잔액 업데이트
+            // Update user balance
             transaction.update(userRef, {
                 hasPendingWithdrawal: false,
-                withdrawableBalance: newWithdrawableBalance, // 여기만 차감합니다.
-                // minedPhx와 referralPhxVerified는 더 이상 건드리지 않습니다!
+                withdrawableBalance: newWithdrawableBalance, // Deduct only from here.
+                // Do not touch minedPhx and referralPhxVerified anymore!
             });
 
-            // 출금 요청 상태 업데이트
+            // Update withdrawal request status
             transaction.update(withdrawalRef, {
                 status: 'approved',
                 processedAt: admin.firestore.FieldValue.serverTimestamp(),

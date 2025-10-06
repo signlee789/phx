@@ -2,7 +2,7 @@
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 
-// Firestore 인스턴스는 이 파일을 require하는 곳에서 초기화된 db를 전달받아 사용합니다.
+// The Firestore instance is passed from the requiring file, which has initialized db.
 let db;
 
 function initialize(database) {

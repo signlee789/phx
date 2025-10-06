@@ -278,12 +278,12 @@ if (isNative) {
         function updateUI(data) {
             userData = data; // Cache latest user data
         
-            // 새로운 계산 방식 적용
+            
             const withdrawableBalance = data.withdrawableBalance || 0;
             const referralPhxUnverified = data.referralPhxUnverified || 0;
             const totalBalance = withdrawableBalance + referralPhxUnverified;
         
-            // 화면 요소 업데이트
+            
             if (dom.coinCount.firstChild) dom.coinCount.firstChild.nodeValue = totalBalance.toFixed(4);
             if (dom.withdrawableBalance.firstChild) dom.withdrawableBalance.firstChild.nodeValue = withdrawableBalance.toFixed(4);
             if (dom.referralUnverifiedBalance.firstChild) dom.referralUnverifiedBalance.firstChild.nodeValue = referralPhxUnverified.toFixed(4);
@@ -292,7 +292,22 @@ if (isNative) {
             updateKycUI(data.kycStatus, data.kycWalletAddress, data.kycRejectionTimestamp);
             updateWithdrawalUI(data);
             
-            if (data.walletAddress) dom.phxWalletAddressInput.value = data.walletAddress;
+            if (data.walletAddress) {
+                
+                dom.phxWalletAddressInput.value = data.walletAddress;
+                dom.phxWalletAddressInput.disabled = true;
+                dom.phxWalletAddressForm.querySelector('button').disabled = true;
+                dom.phxWalletMessage.textContent = 'Your address is saved and cannot be changed.';
+                dom.phxWalletMessage.className = 'message info-text';
+            } else {
+                
+                dom.phxWalletAddressInput.value = '';
+                dom.phxWalletAddressInput.disabled = false;
+                dom.phxWalletAddressForm.querySelector('button').disabled = false;
+                dom.phxWalletMessage.textContent = '';
+                dom.phxWalletMessage.className = 'message';
+            }
+            
             
             updateP2PUI(data);
         }
@@ -440,7 +455,7 @@ if (isNative) {
             dom.chartErrorMessage.textContent = '';
             
             try {
-                                // [수정] 웹사이트 내부의 graph-data.json을 직접 읽도록 경로를 수정합니다.
+                                
                                 const response = await fetch(`graph-data.json?t=${new Date().getTime()}`);
 
                 if (!response.ok) {
@@ -487,18 +502,18 @@ if (isNative) {
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
-                            y: { /* y축 설정은 그대로 둡니다 */ },
+                            y: { /* y */ },
                             x: {
                                 ticks: {
                                     color: 'rgba(255, 255, 255, 0.7)',
-                                    // 이 callback 함수가 핵심입니다.
+                                    
                                     callback: function(value, index, ticks) {
-                                        // 첫 번째 눈금(tick)과 마지막 눈금(tick)인지 확인합니다.
+                                        
                                         if (index === 0 || index === ticks.length - 1) {
-                                            // 해당 눈금의 라벨(날짜)을 반환하여 화면에 표시합니다.
+                                            
                                             return this.getLabelForValue(value);
                                         }
-                                        // 그 외의 모든 중간 눈금들은 빈 문자열('')을 반환하여 숨깁니다.
+                                        
                                         return '';
                                     }
                                 },
@@ -552,7 +567,7 @@ if (isNative) {
         
         function initializeMainApp(uid) {
             if (isNative) {
-                initializeAdMob(); // AdMob 초기화 및 첫 광고 로드 시작
+                initializeAdMob(); 
             }
             attachUserSnapshots(uid);
             loadAnnouncements();
@@ -599,22 +614,75 @@ if (isNative) {
         }
 
         function updateReferredUsersUI(docs) {
-            dom.referredUsersList.innerHTML = '';
-            const totalUsers = docs.length;
-            const verifiedUsers = docs.filter(doc => doc.data().kycVerified).length;
-            dom.referredUsersCount.textContent = `(${verifiedUsers}/${totalUsers})`;
+            dom.referredUsersList.innerHTML = ''; // Clear the list first
+        
+            // Sort users by join date, newest first
+            const sortedDocs = docs.sort((a, b) => {
+                const timeA = a.data().joinedAt?.toMillis() || 0;
+                const timeB = b.data().joinedAt?.toMillis() || 0;
+                return timeB - timeA;
+            });
+        
+            const totalUsers = sortedDocs.length;
+            // Count users for whom the bonus has been paid
+            const bonusPaidUsers = sortedDocs.filter(doc => doc.data().bonusPaid).length;
+            dom.referredUsersCount.textContent = `(${bonusPaidUsers}/${totalUsers})`;
+        
             if (totalUsers === 0) {
-                dom.referredUsersList.innerHTML = '<li>No users referred yet.</li>';
+                dom.referredUsersList.innerHTML = '<li>No users referred yet. Share your code!</li>';
                 return;
             }
-            docs.forEach(doc => {
+        
+            // Define the required number of sessions from constants
+            const MINING_SESSIONS_REQUIRED = 170; 
+        
+            sortedDocs.forEach(doc => {
                 const user = doc.data();
                 const li = document.createElement('li');
-                const kycSpan = `<span class="kyc-status ${user.kycVerified ? 'verified' : 'unverified'}">${user.kycVerified ? 'Verified' : 'Unverified'}</span>`;
-                li.innerHTML = `<span>${user.email || 'User'}</span> ${kycSpan}`;
+        
+                // Check completion status for each condition
+                const kycCompleted = user.kycVerified === true;
+                const sessionsCompleted = (user.sessions || 0) >= MINING_SESSIONS_REQUIRED;
+                const walletAdded = user.walletAdded === true;
+                const bonusPaid = user.bonusPaid === true;
+        
+                // Determine text and class for each icon
+                const kycStatus = {
+                    text: 'KYC',
+                    completed: kycCompleted
+                };
+                const miningStatus = {
+                    text: `Mine (${user.sessions || 0}/${MINING_SESSIONS_REQUIRED})`,
+                    completed: sessionsCompleted
+                };
+                const walletStatus = {
+                    text: 'Wallet',
+                    completed: walletAdded
+                };
+                
+                // If bonus is already paid, mark all as complete
+                const finalKyc = bonusPaid || kycStatus.completed;
+                const finalMining = bonusPaid || miningStatus.completed;
+                const finalWallet = bonusPaid || walletStatus.completed;
+        
+                li.innerHTML = `
+                    <span class="referred-user-email">${user.email || 'User'}</span>
+                    <div class="referral-progress">
+                        <div class="progress-icon ${finalKyc ? 'completed' : ''}" title="KYC Verified">
+                            <div class="icon-shape"></div>
+                        </div>
+                        <div class="progress-icon ${finalMining ? 'completed' : ''}" title="Mining Sessions Completed">
+                            <div class="icon-shape"></div>
+                        </div>
+                        <div class="progress-icon ${finalWallet ? 'completed' : ''}" title="Stellar Wallet Added">
+                            <div class="icon-shape"></div>
+                        </div>
+                    </div>
+                `;
                 dom.referredUsersList.appendChild(li);
             });
         }
+        
         
         // --- Event Handlers & Cloud Function Calls ---
 
@@ -694,25 +762,45 @@ if (isNative) {
             }
         });
 
-        dom.phxWalletAddressForm.addEventListener('submit', e => {
+        dom.phxWalletAddressForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const address = dom.phxWalletAddressInput.value.trim();
             dom.phxWalletMessage.textContent = '';
-            if (!currentUser || !address.match(/^G[A-Z0-9]{55}$/)) {
-                dom.phxWalletMessage.textContent = 'Invalid Stellar (e.g., LOBSTR) wallet address format.';
+            dom.phxWalletMessage.className = 'message'; 
+        
+            if (!address.match(/^G[A-Z0-9]{55}$/)) {
+                dom.phxWalletMessage.textContent = 'Invalid Stellar wallet address format.';
+                dom.phxWalletMessage.className = 'message error-message';
                 return;
             }
-            updateDoc(doc(db, 'users', currentUser.uid), { walletAddress: address })
-                .then(() => dom.phxWalletMessage.textContent = 'Stellar address saved successfully!')
-                .catch(err => dom.phxWalletMessage.textContent = `Error: ${err.message}`);
+        
+            const button = e.target.querySelector('button');
+            button.disabled = true;
+            button.textContent = 'Saving...';
+        
+            const saveWalletAddress = httpsCallable(functions, 'saveWalletAddress');
+            try {
+                const result = await saveWalletAddress({ walletAddress: address });
+                dom.phxWalletMessage.textContent = result.data.message;
+                dom.phxWalletMessage.className = 'message success-text';
+                
+            } catch (error) {
+                dom.phxWalletMessage.textContent = `Error: ${error.message}`;
+                dom.phxWalletMessage.className = 'message error-message';
+                
+                button.disabled = false;
+                button.textContent = 'Save Address';
+            }
         });
+        
+        
 
-        // 이 코드 전체를 복사해서 기존 코드를 덮어쓰세요!
+        
         // --- Mine Button Click Handler (New Version) ---
 dom.mineButton.addEventListener('click', async () => {
-    dom.mineButton.disabled = true; // 버튼을 즉시 비활성화
+    dom.mineButton.disabled = true; 
 
-    if (isNative) { // --- 모바일 앱일 경우 ---
+    if (isNative) { 
         if (isRewardAdReady) {
             try {
                 // The new API uses 'showRewarded'.
@@ -732,7 +820,7 @@ dom.mineButton.addEventListener('click', async () => {
         }
 
 
-    } else { // --- 웹사이트일 경우 (광고 없음) ---
+    } else { 
         try {
             const minePhx = httpsCallable(functions, 'minePhx');
             await minePhx();
@@ -785,16 +873,16 @@ dom.mineButton.addEventListener('click', async () => {
         });
 
         async function copyToClipboard(text, type) {
-            // isNative 변수는 파일 상단에 이미 정의되어 있습니다.
+            
             if (isNative) {
-                // 앱 환경일 경우: Capacitor 클립보드 플러그인 사용
+                
                 const { Clipboard } = Capacitor.Plugins;
                 await Clipboard.write({
                     string: text
                 });
                 dom.copyStatusMessage.textContent = `${type} copied to clipboard!`;
             } else {
-                // 웹 환경일 경우: 기존의 navigator.clipboard 사용 (HTTPS에서만 작동)
+                
                 try {
                     await navigator.clipboard.writeText(text);
                     dom.copyStatusMessage.textContent = `${type} copied to clipboard!`;
@@ -803,7 +891,7 @@ dom.mineButton.addEventListener('click', async () => {
                      console.error('Copy failed', err);
                 }
             }
-            // 메시지는 2초 후에 사라집니다.
+            
             setTimeout(() => dom.copyStatusMessage.textContent = '', 2000);
         }
 
@@ -818,21 +906,21 @@ dom.mineButton.addEventListener('click', async () => {
         
             try {
                 if (isNative) {
-                    // 앱 환경: Capacitor 클립보드 사용
+                    
                     const { Clipboard } = Capacitor.Plugins;
                     await Clipboard.write({ string: textToCopy });
                 } else {
-                    // 웹 환경: navigator 사용
+                    
                     await navigator.clipboard.writeText(textToCopy);
                 }
         
-                // 성공 UI 업데이트
+                
                 statusElement.textContent = 'Issuer Address copied to clipboard!';
                 statusElement.style.color = '#4CAF50';
                 setTimeout(() => { statusElement.textContent = ''; }, 3000);
         
             } catch (err) {
-                // 실패 UI 업데이트
+                
                 statusElement.textContent = 'Failed to copy address.';
                 statusElement.style.color = '#ff6b6b';
                 console.error('Failed to copy issuer address: ', err);

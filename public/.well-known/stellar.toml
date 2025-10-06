@@ -1,11 +1,18 @@
-# stellar.toml for PHX
+# stellar.toml for minephx.cloud
 
+HOME_DOMAIN="minephx.cloud"
 ACCOUNTS=["GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"]
-DOCUMENTATION="https://github.com/signlee789/phx"
+VERSION="2.0.0"
+
+[DOCUMENTATION]
+ORG_NAME="PHX"
+ORG_URL="https://minephx.cloud"
+ORG_LOGO="https://minephx.cloud/Logo.png"
+ORG_DESCRIPTION="PHX is a mobile mining application asset."
 
 [[CURRENCIES]]
 code="PHX"
 issuer="GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"
-name="PHX"
-desc="PHX is a decentralized digital currency designed for fair participation through a Proof of Daily Engagement model. It allows web-based mining without special hardware, focusing on accessibility and sustainable community growth."
-image="https://minephx.cloud/logo.png"
+name="Phoenix"
+desc="PHX is the native asset for the PHX mobile mining application, rewarding users for their participation and engagement."
+image="https://minephx.cloud/Logo.png"

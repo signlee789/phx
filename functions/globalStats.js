@@ -2,8 +2,8 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 /**
- * 주기적으로 전역 채굴 통계를 계산하고 업데이트합니다.
- * 매일 자정 (미국 동부 시간 기준)에 실행됩니다.
+ * Periodically calculates and updates global mining statistics.
+ * Runs every day at midnight (US Eastern Time).
  */
 exports.calculateGlobalStats = functions.pubsub.schedule('0 0 * * *').timeZone('America/New_York').onRun(async (context) => {
   try {
@@ -14,7 +14,7 @@ exports.calculateGlobalStats = functions.pubsub.schedule('0 0 * * *').timeZone('
     let totalMined = 0;
     let activeMiners = 0;
     const now = Date.now();
-    const oneDayAgo = now - 24 * 3600 * 1000; // 24시간 전
+    const oneDayAgo = now - 24 * 3600 * 1000; // 24 hours ago
 
     if (users) {
       for (const userId in users) {
@@ -22,7 +22,7 @@ exports.calculateGlobalStats = functions.pubsub.schedule('0 0 * * *').timeZone('
         if (user.totalMined) {
           totalMined += user.totalMined;
         }
-        // 최근 24시간 이내에 채굴한 사용자를 '활동 중인 채굴자'로 간주
+        // Consider users who have mined in the last 24 hours as 'active miners'
         if (user.lastMined && user.lastMined > oneDayAgo) {
           activeMiners++;
         }
