@@ -1,5 +1,5 @@
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const StellarSdk = require("stellar-sdk");
 
@@ -139,5 +139,33 @@ exports.minePhx = onCall(async (request) => {
           throw error;
         }
         throw new HttpsError("internal", "An unexpected error occurred during mining.");
+    }
+});
+
+// --- Public API endpoint for Circulating Supply ---
+// Provides the current circulating supply of PHX.
+// Circulating supply is the total amount of PHX successfully withdrawn by users.
+exports.circulatingSupply = onRequest({ cors: true }, async (req, res) => {
+    try {
+        const withdrawalsSnapshot = await db.collection('withdrawals')
+                                              .where('status', '==', 'completed')
+                                              .get();
+
+        let totalCirculatingSupply = 0;
+        if (!withdrawalsSnapshot.empty) {
+            withdrawalsSnapshot.forEach(doc => {
+                const withdrawalData = doc.data();
+                if (withdrawalData.amount && typeof withdrawalData.amount === 'number') {
+                    totalCirculatingSupply += withdrawalData.amount;
+                }
+            });
+        }
+        
+        res.set('Content-Type', 'text/plain');
+        res.status(200).send(String(totalCirculatingSupply));
+
+    } catch (error) {
+        console.error("Error calculating circulating supply:", error);
+        res.status(500).send("Error calculating circulating supply.");
     }
 });

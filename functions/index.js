@@ -450,3 +450,43 @@ exports.migrateUsersToWithdrawableBalance = functions.region('us-central1').http
         throw new functions.https.HttpsError("internal", "An error occurred during the migration process.");
     }
 });
+
+// --- Public API Endpoints ---
+exports.circulatingSupply = functions.region('us-central1').https.onRequest(async (req, res) => {
+    // Set CORS headers for public access from any origin
+    res.set('Access-Control-Allow-Origin', '*');
+
+    if (req.method === 'OPTIONS') {
+      // Handle pre-flight requests for CORS
+      res.set('Access-Control-Allow-Methods', 'GET');
+      res.set('Access-Control-Allow-Headers', 'Content-Type');
+      res.set('Access-Control-Max-Age', '3600');
+      res.status(204).send('');
+    } else {
+        try {
+            // Query the 'withdrawals' collection for completed transactions
+            const withdrawalsSnapshot = await db.collection('withdrawals')
+                                                  .where('status', '==', 'completed')
+                                                  .get();
+
+            let totalCirculatingSupply = 0;
+            if (!withdrawalsSnapshot.empty) {
+                withdrawalsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Sum the 'finalAmount' of each completed withdrawal
+                    if (data.finalAmount && typeof data.finalAmount === 'number') {
+                        totalCirculatingSupply += data.finalAmount;
+                    }
+                });
+            }
+
+            // Return the total supply as a plain text string with 7 decimal places, as required by CoinGecko
+            res.set('Content-Type', 'text/plain');
+            res.status(200).send(totalCirculatingSupply.toFixed(7));
+
+        } catch (error) {
+            functions.logger.error("Error calculating circulating supply:", error);
+            res.status(500).send("An error occurred while calculating the supply.");
+        }
+    }
+});

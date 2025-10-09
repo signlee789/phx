@@ -1,4 +1,3 @@
-
 {
   "name": "PHX Mining",
   "short_name": "PHX",
@@ -8,9 +7,14 @@
   "theme_color": "#1F1A24",
   "icons": [
     {
-      "src": "fire-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "Logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "Logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }

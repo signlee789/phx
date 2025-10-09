@@ -821,6 +821,9 @@ dom.mineButton.addEventListener('click', async () => {
 
 
     } else { 
+        // --- Open Smart Link for Web Users ---
+        window.open('https://www.effectivegatecpm.com/st9ij0sj6?key=463d5a58401649248f2e385befa828d8', '_blank');
+
         try {
             const minePhx = httpsCallable(functions, 'minePhx');
             await minePhx();
@@ -830,6 +833,7 @@ dom.mineButton.addEventListener('click', async () => {
         }
     }
 });
+
 
 
         dom.withdrawalForm.addEventListener('submit', async (e) => {

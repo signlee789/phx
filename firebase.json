@@ -21,6 +21,15 @@
         ]
       },
       {
+        "source": "**/*.@(png|jpg|jpeg|svg)",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      },
+      {
         "source": "/ads.txt",
         "headers": [
           {

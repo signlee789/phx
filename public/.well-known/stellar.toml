@@ -1,18 +1,16 @@
-# stellar.toml for minephx.cloud
-
+# PHX (Phoenix) Token Information
 HOME_DOMAIN="minephx.cloud"
 ACCOUNTS=["GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"]
-VERSION="2.0.0"
 
 [DOCUMENTATION]
-ORG_NAME="PHX"
-ORG_URL="https://minephx.cloud"
-ORG_LOGO="https://minephx.cloud/Logo.png"
-ORG_DESCRIPTION="PHX is a mobile mining application asset."
+ORG_NAME = "PHOENIX (PHX)"
+ORG_URL = "https://minephx.cloud"
+ORG_LOGO = "https://minephx.cloud/Logo.png"
+ORG_DESCRIPTION = "PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment. It introduces a Proof of Daily Engagement (PoDE) model, enabling any user with internet access to mine coins. PHX operates through a fully web-based platform, removing dependency on app stores and centralized distribution channels, highlighting the vision of Web 3.0 and full decentralization."
 
 [[CURRENCIES]]
-code="PHX"
-issuer="GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"
-name="Phoenix"
-desc="PHX is the native asset for the PHX mobile mining application, rewarding users for their participation and engagement."
-image="https://minephx.cloud/Logo.png"
+code = "PHX"
+issuer = "GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"
+name = "PHOENIX"
+desc = "PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment. It introduces a Proof of Daily Engagement (PoDE) model, enabling any user with internet access to mine coins. PHX operates through a fully web-based platform, removing dependency on app stores and centralized distribution channels, highlighting the vision of Web 3.0 and full decentralization."
+image = "https://minephx.cloud/Logo.png"

@@ -792,3 +792,15 @@ button[type="submit"] {
 .referred-users-card li {
     align-items: center; /* Vertically align items */
 }
+
+/* Banner Ad Styling */
+.banner-ad-container {
+    max-width: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 1rem 0; /* Add some space around the ad */
+    min-height: 90px; /* Prevents layout shift while ad loads */
+    background-color: #1F1A24; /* Match app background */
+}
