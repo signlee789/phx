@@ -426,10 +426,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const result = await calculateRemainingSupply();
-            const { totalCirculating, remainingSupply } = result.data;
-            dom.totalCirculatingSupply.textContent = `${totalCirculating.toLocaleString()} PHX`;
+            
+            const { totalWithdrawable, remainingSupply } = result.data;
+            
+            dom.totalCirculatingSupply.textContent = `${totalWithdrawable.toLocaleString()} PHX`;
             dom.remainingSupply.textContent = `${remainingSupply.toLocaleString()} PHX`;
         } catch (error) {
+
             console.error("Error calculating supply:", error);
             dom.totalCirculatingSupply.textContent = 'Error';
             dom.remainingSupply.textContent = 'Error';

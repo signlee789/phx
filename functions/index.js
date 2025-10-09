@@ -492,7 +492,7 @@ exports.circulatingSupply = functions.region('us-central1').https.onRequest(asyn
 });
 
 exports.totalSupply = functions.region('us-central1').https.onRequest(async (req, res) => {
-    // Set CORS headers for public access from any origin
+    // Set CORS headers for public access
     res.set('Access-Control-Allow-Origin', '*');
 
     if (req.method === 'OPTIONS') {
@@ -504,22 +504,19 @@ exports.totalSupply = functions.region('us-central1').https.onRequest(async (req
     } else {
         try {
             const usersSnapshot = await db.collection('users').get();
-            let totalGeneratedSupply = 0;
+            let totalWithdrawableSupply = 0;
 
             if (!usersSnapshot.empty) {
                 usersSnapshot.forEach(doc => {
                     const user = doc.data();
-                    const mined = user.minedPhx || 0;
-                    const refVerified = user.referralPhxVerified || 0;
-                    const refUnverified = user.referralPhxUnverified || 0;
-                    // Summing up all components that contribute to the total generated supply
-                    totalGeneratedSupply += mined + refVerified + refUnverified;
+                    // CORRECT LOGIC: Sum the `withdrawableBalance` field from each user document.
+                    totalWithdrawableSupply += user.withdrawableBalance || 0;
                 });
             }
 
             // Return the total supply as a plain text string with 7 decimal places, as required by CoinGecko
             res.set('Content-Type', 'text/plain');
-            res.status(200).send(totalGeneratedSupply.toFixed(7));
+            res.status(200).send(totalWithdrawableSupply.toFixed(7));
 
         } catch (error) {
             functions.logger.error("Error calculating total supply:", error);
@@ -527,4 +524,5 @@ exports.totalSupply = functions.region('us-central1').https.onRequest(async (req
         }
     }
 });
+
 

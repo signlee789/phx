@@ -36,11 +36,10 @@ const manageKycRequest = async (data, context) => {
                     kycVerified: true
                 });
             } else { // action === 'reject'
-                // Also reset the wallet address to allow the user to submit a new one.
                 transaction.update(userRef, {
-                    kycStatus: 'failed', // Change status to 'failed'
+                    kycStatus: 'failed',
                     kycWalletAddress: null,
-                    kycRejectionTimestamp: admin.firestore.FieldValue.serverTimestamp() // Record the rejection time
+                    kycRejectionTimestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
             }
         });
@@ -57,8 +56,8 @@ const manageKycRequest = async (data, context) => {
 };
 
 /**
- * Calculates the total circulating supply and subtracts it from the max supply.
- * This is a read-only function callable by an admin.
+ * Calculates the total supply of withdrawable tokens by summing the 'withdrawableBalance' field.
+ * It is a read-only function callable by an admin.
  */
 const calculateRemainingSupply = async (data, context) => {
     if (!db) {
@@ -68,28 +67,26 @@ const calculateRemainingSupply = async (data, context) => {
         throw new functions.https.HttpsError("unauthenticated", "You must be an admin to perform this action.");
     }
 
-    const MAX_SUPPLY = 21000000;
-    let totalCirculatingSupply = 0;
+    const MAX_SUPPLY = 21000000; // Correct Max Supply for PHX
+    let totalWithdrawableSupply = 0;
 
     try {
         const usersSnapshot = await db.collection('users').get();
         if (usersSnapshot.empty) {
-            return { remainingSupply: MAX_SUPPLY, totalCirculating: 0 };
+            return { remainingSupply: MAX_SUPPLY, totalWithdrawable: 0 };
         }
 
+        // CORRECT LOGIC: Sum the `withdrawableBalance` field from each user document.
         usersSnapshot.forEach(doc => {
-            // coinCount is the most reliable field for total user holdings
-            totalCirculatingSupply += doc.data().coinCount || 0;
+            const user = doc.data();
+            totalWithdrawableSupply += user.withdrawableBalance || 0;
         });
-        
-        // To handle potential floating point inaccuracies
-        totalCirculatingSupply = Math.round(totalCirculatingSupply * 10000) / 10000;
 
-        const remainingSupply = MAX_SUPPLY - totalCirculatingSupply;
+        const remainingSupply = MAX_SUPPLY - totalWithdrawableSupply;
 
         return { 
-            remainingSupply: Math.round(remainingSupply * 10000) / 10000,
-            totalCirculating: totalCirculatingSupply
+            remainingSupply: remainingSupply,
+            totalWithdrawable: totalWithdrawableSupply
         };
     } catch (error) {
         functions.logger.error("Error calculating remaining supply:", error);
