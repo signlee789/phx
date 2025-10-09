@@ -490,3 +490,41 @@ exports.circulatingSupply = functions.region('us-central1').https.onRequest(asyn
         }
     }
 });
+
+exports.totalSupply = functions.region('us-central1').https.onRequest(async (req, res) => {
+    // Set CORS headers for public access from any origin
+    res.set('Access-Control-Allow-Origin', '*');
+
+    if (req.method === 'OPTIONS') {
+      // Handle pre-flight requests for CORS
+      res.set('Access-Control-Allow-Methods', 'GET');
+      res.set('Access-Control-Allow-Headers', 'Content-Type');
+      res.set('Access-Control-Max-Age', '3600');
+      res.status(204).send('');
+    } else {
+        try {
+            const usersSnapshot = await db.collection('users').get();
+            let totalGeneratedSupply = 0;
+
+            if (!usersSnapshot.empty) {
+                usersSnapshot.forEach(doc => {
+                    const user = doc.data();
+                    const mined = user.minedPhx || 0;
+                    const refVerified = user.referralPhxVerified || 0;
+                    const refUnverified = user.referralPhxUnverified || 0;
+                    // Summing up all components that contribute to the total generated supply
+                    totalGeneratedSupply += mined + refVerified + refUnverified;
+                });
+            }
+
+            // Return the total supply as a plain text string with 7 decimal places, as required by CoinGecko
+            res.set('Content-Type', 'text/plain');
+            res.status(200).send(totalGeneratedSupply.toFixed(7));
+
+        } catch (error) {
+            functions.logger.error("Error calculating total supply:", error);
+            res.status(500).send("An error occurred while calculating the total supply.");
+        }
+    }
+});
+
