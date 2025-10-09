@@ -1,16 +1,15 @@
-# PHX (Phoenix X Currency) Token Information
-HOME_DOMAIN="minephx.cloud"
+VERSION="2.0.0"
 ACCOUNTS=["GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"]
 
 [DOCUMENTATION]
-ORG_NAME = "Phoenix X Currency (PHX)"
+ORG_NAME = "Phoenix X Currency"
 ORG_URL = "https://minephx.cloud"
 ORG_LOGO = "https://minephx.cloud/Logo.png"
-ORG_DESCRIPTION = "PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment. It introduces a Proof of Daily Engagement (PoDE) model, enabling any user with internet access to mine coins. PHX operates through a fully web-based platform, removing dependency on app stores and centralized distribution channels, highlighting the vision of Web 3.0 and full decentralization."
+ORG_DESCRIPTION = "PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment."
 
 [[CURRENCIES]]
 code = "PHX"
 issuer = "GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW"
 name = "Phoenix X Currency"
-desc = "PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment. It introduces a Proof of Daily Engagement (PoDE) model, enabling any user with internet access to mine coins. PHX operates through a fully web-based platform, removing dependency on app stores and centralized distribution channels, highlighting the vision of Web 3.0 and full decentralization."
+desc = "PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment."
 image = "https://minephx.cloud/Logo.png"
