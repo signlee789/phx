@@ -130,142 +130,118 @@ exports.registerUser = functions.region('us-central1').https.onCall(async (data,
     return { status: 'success', uid: userRecord.uid };
 });
 
-// onUserKycUpdate 
+
 exports.onReferredUserUpdate = functions.region('us-central1').firestore
     .document('users/{userId}')
     .onUpdate(async (change, context) => {
         const { userId } = context.params;
-        const before = change.before.data();
-        const after = change.after.data();
+        const afterData = change.after.data();
+        const beforeData = change.before.data();
 
-        const referrerUid = after.referredBy;
+        const referrerUid = afterData.referredBy;
 
         
-        if (!referrerUid || referrerUid === DEFAULT_REFERRAL_UID) {
+        if (!referrerUid) {
+            functions.logger.log(`User ${userId} has no referrer. Exiting.`);
             return null;
         }
 
         
-        const kycChanged = before.kycVerified !== after.kycVerified;
-        const sessionsChanged = (before.sessions || 0) !== (after.sessions || 0);
-        const walletChanged = before.walletAddress !== after.walletAddress;
+        const kycIsVerified = afterData.kycStatus === 'verified';
+        const walletIsAdded = !!afterData.walletAddress && afterData.walletAddress.startsWith('G');
+        const sessions = afterData.sessions || 0;
 
         
-        if (!kycChanged && !sessionsChanged && !walletChanged) {
+        const kycWasVerified = beforeData.kycStatus === 'verified';
+        const walletWasAdded = !!beforeData.walletAddress && beforeData.walletAddress.startsWith('G');
+        const sessionsBefore = beforeData.sessions || 0;
+
+        
+        if (kycIsVerified === kycWasVerified && walletIsAdded === walletWasAdded && sessions === sessionsBefore) {
             return null;
         }
 
+        const referredUserRef = db.collection('users').doc(referrerUid).collection('referredUsers').doc(userId);
         const referrerRef = db.collection('users').doc(referrerUid);
-        const referredUserRef = referrerRef.collection('referredUsers').doc(userId);
+        const MINING_SESSIONS_REQUIRED = 170;
+        const REFERRAL_BONUS = 0.88;
 
         try {
             await db.runTransaction(async (transaction) => {
-                const referredUserSnap = await transaction.get(referredUserRef);
-                if (!referredUserSnap.exists) {
-                    functions.logger.warn(`Referred user document ${userId} not found for referrer ${referrerUid}.`);
+                const referrerDoc = await transaction.get(referrerRef);
+                if (!referrerDoc.exists) {
+                    functions.logger.warn(`Referrer ${referrerUid} not found for user ${userId}.`);
                     return;
                 }
-                const referredUserData = referredUserSnap.data();
+
+                const referredUserDoc = await transaction.get(referredUserRef);
+                const referredUserData = referredUserDoc.data() || {};
 
                 
-                const updateData = {};
-                if (kycChanged) {
-                    updateData.kycVerified = after.kycVerified;
-                }
-                if (sessionsChanged) {
-                    updateData.sessions = after.sessions || 0;
-                }
-                if (walletChanged) {
-                    updateData.walletAdded = !!after.walletAddress;
-                }
-
-                if (Object.keys(updateData).length > 0) {
-                    transaction.update(referredUserRef, updateData);
-                }
+                const syncData = {
+                    email: afterData.email, 
+                    kycVerified: kycIsVerified,
+                    walletAdded: walletIsAdded, 
+                    sessions: sessions,
+                };
 
                 
-                const bonusAlreadyPaid = referredUserData.bonusPaid === true;
-                if (bonusAlreadyPaid) {
-                    return; 
-                }
-
-                const kycCompleted = after.kycVerified === true;
-                const sessionsCompleted = (after.sessions || 0) >= MINING_SESSIONS_REQUIRED;
-                const walletAdded = !!after.walletAddress;
+                transaction.set(referredUserRef, syncData, { merge: true });
+                functions.logger.log(`SUCCESS: Synced referral data for ${userId}. Wallet status is now ${syncData.walletAdded}`);
 
                 
-                if (kycCompleted && sessionsCompleted && walletAdded) {
-                    functions.logger.info(`All referral conditions met for user ${userId}. Awarding bonus to referrer ${referrerUid}.`);
+                const bonusIsAlreadyPaid = referredUserData.bonusPaid === true;
+                const allConditionsMet = kycIsVerified && walletIsAdded && sessions >= MINING_SESSIONS_REQUIRED;
 
-                    
+                if (!bonusIsAlreadyPaid && allConditionsMet) {
                     transaction.update(referrerRef, {
-                        referralPhxUnverified: admin.firestore.FieldValue.increment(-REFERRAL_BONUS),
-                        referralPhxVerified: admin.firestore.FieldValue.increment(REFERRAL_BONUS),
-                        withdrawableBalance: admin.firestore.FieldValue.increment(REFERRAL_BONUS)
+                        referralPhxUnverified: admin.firestore.FieldValue.increment(REFERRAL_BONUS)
                     });
-
-                    
                     transaction.update(referredUserRef, { bonusPaid: true });
                 }
             });
+            return null;
         } catch (error) {
-            functions.logger.error(`Error processing referral update for user ${userId} and referrer ${referrerUid}`, error);
+            functions.logger.error(`CRITICAL: Error in onReferredUserUpdate for user: ${userId}`, error);
+            return null;
         }
-        return null;
     });
 
+
+
+    exports.saveWalletAddress = functions.region('us-central1').https.onCall(async (data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+        }
+        const { uid } = context.auth;
+        const { walletAddress } = data;
+        const address = walletAddress?.trim();
+    
+        // Validate the Stellar address format.
+        if (!address || !address.match(/^G[A-Z0-9]{55}$/)) {
+            throw new functions.https.HttpsError("invalid-argument", "Invalid Stellar wallet address format.");
+        }
+    
+        // This function's ONLY job is to update the walletAddress on the main user document.
+        // The change will then be automatically detected by the 'onReferredUserUpdate' trigger,
+        // which handles all the referral-related logic. This is the correct, decoupled design.
+        try {
+            const userRef = db.collection('users').doc(uid);
+            await userRef.update({ walletAddress: address });
+            
+            functions.logger.log(`Successfully saved wallet for user ${uid}. The onUpdate trigger will now handle referral sync.`);
+            return { status: "success", message: "Stellar wallet address saved successfully." };
+    
+        } catch (error) {
+            functions.logger.error(`Failed to save wallet for UID: ${uid}`, error);
+            throw new functions.https.HttpsError("internal", "An unexpected error occurred while saving the wallet.");
+        }
+    });
+    
 
 exports.submitKycRequest = functions.region('us-central1').https.onCall(kycLogic.submitKycRequest);
 exports.manageKycRequest = functions.region('us-central1').https.onCall(manageKycLogic.manageKycRequest);
 exports.calculateRemainingSupply = functions.region('us-central1').https.onCall(manageKycLogic.calculateRemainingSupply);
-
-exports.saveWalletAddress = functions.region('us-central1').https.onCall(async (data, context) => {
-    const uid = context.auth?.uid;
-    if (!uid) {
-        throw new functions.https.HttpsError("unauthenticated", "Authentication is required.");
-    }
-
-    const walletAddress = data.walletAddress ? data.walletAddress.trim() : null;
-    if (!walletAddress || !walletAddress.match(/^G[A-Z0-9]{55}$/)) {
-        throw new functions.https.HttpsError("invalid-argument", "A valid Stellar Wallet Address is required.");
-    }
-
-    const userRef = db.collection("users").doc(uid);
-    const usedWalletRef = db.collection('usedStellarWallets').doc(walletAddress);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            
-            const usedWalletDoc = await transaction.get(usedWalletRef);
-            if (usedWalletDoc.exists) {
-                throw new functions.https.HttpsError("already-exists", "This Stellar wallet address has already been saved in the system.");
-            }
-            
-            
-            const userDoc = await transaction.get(userRef);
-            if (userDoc.data() && userDoc.data().walletAddress) {
-                 throw new functions.https.HttpsError("failed-precondition", "You have already saved a wallet address. It cannot be changed.");
-            }
-
-            
-            transaction.update(userRef, { walletAddress: walletAddress });
-            transaction.set(usedWalletRef, { 
-                owner: uid, 
-                addedAt: admin.firestore.FieldValue.serverTimestamp() 
-            });
-        });
-
-        return { status: "success", message: "Stellar wallet address saved successfully." };
-
-    } catch (error) {
-        functions.logger.error(`Failed to save wallet for UID: ${uid}`, error);
-        if (error instanceof functions.https.HttpsError) {
-            throw error; 
-        }
-        throw new functions.https.HttpsError("internal", "An unexpected error occurred.");
-    }
-});
-
 
 
 // MINING & CORE APP LOGIC

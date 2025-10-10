@@ -644,6 +644,7 @@ if (isNative) {
                 const kycCompleted = user.kycVerified === true;
                 const sessionsCompleted = (user.sessions || 0) >= MINING_SESSIONS_REQUIRED;
                 const walletAdded = user.walletAdded === true;
+
                 const bonusPaid = user.bonusPaid === true;
         
                 // Determine text and class for each icon
