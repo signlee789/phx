@@ -102,6 +102,8 @@ if (isNative) {
                     } catch (error) {
                         console.error("Critical Error initializing AdMob:", error);
                     }
+
+                    
                 }        
 
 
@@ -186,8 +188,47 @@ if (isNative) {
             copyIssuerButton: document.getElementById('copy-issuer-button'),
             issuerAddress: document.getElementById('issuer-address'),
             copyIssuerStatusMessage: document.getElementById('copy-issuer-status-message'),
-            
+            // xlmdonation
+    xlmDonationAddress: document.getElementById('xlm-donation-address'),
+    copyXlmDonationButton: document.getElementById('copy-xlm-donation-button'),
+    copyXlmStatusMessage: document.getElementById('copy-xlm-status-message'),
+    donationLeaderboard: document.getElementById('donation-leaderboard'),
+
         };
+
+        async function loadDonationLeaderboard() {
+            if (!dom.donationLeaderboard) return;
+            dom.donationLeaderboard.innerHTML = '<div class="spinner"></div>'; // Show spinner while loading
+            try {
+                const getDonationLeaderboard = httpsCallable(functions, 'getDonationLeaderboard');
+                const result = await getDonationLeaderboard();
+                const leaderboard = result.data; // Assuming the backend returns an array
+        
+                dom.donationLeaderboard.innerHTML = ''; // Clear spinner
+        
+                if (!leaderboard || leaderboard.length === 0) {
+                    dom.donationLeaderboard.innerHTML = '<li>Be the first to contribute!</li>';
+                    return;
+                }
+        
+                leaderboard.forEach((entry, index) => {
+                    const li = document.createElement('li');
+                    // Shorten the address for display
+                    const shortAddress = `${entry.address.substring(0, 6)}...${entry.address.substring(entry.address.length - 6)}`;
+                    li.innerHTML = `
+                        <div>
+                            <span class="leaderboard-rank">#${index + 1}</span>
+                            <span class="leaderboard-address">${shortAddress}</span>
+                        </div>
+                        <span class="leaderboard-amount">${Number(entry.amount).toFixed(2)} XLM</span>
+                    `;
+                    dom.donationLeaderboard.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Error loading donation leaderboard:", error);
+                dom.donationLeaderboard.innerHTML = '<li class="error-message">Could not load leaderboard.</li>';
+            }
+        }
 
         // --- App State ---
         let currentUser = null;
@@ -231,8 +272,17 @@ if (isNative) {
         dom.infoNavCards.forEach(card => {
             card.addEventListener('click', () => {
                 const targetId = card.dataset.target;
+                // Hide main info navigation and show the selected page
                 dom.infoNavigation.classList.add('hidden');
-                document.getElementById(targetId)?.classList.remove('hidden');
+                const targetPage = document.getElementById(targetId);
+                if (targetPage) {
+                    targetPage.classList.remove('hidden');
+                }
+        
+                // If the donation page is being opened, load the leaderboard
+                if (targetId === 'donation-content') {
+                    loadDonationLeaderboard();
+                }
             });
         });
         dom.backToInfoBtns.forEach(btn => {
@@ -822,8 +872,6 @@ dom.mineButton.addEventListener('click', async () => {
 
 
     } else { 
-        // --- Open Smart Link for Web Users ---
-        window.open('https://www.effectivegatecpm.com/st9ij0sj6?key=463d5a58401649248f2e385befa828d8', '_blank');
 
         try {
             const minePhx = httpsCallable(functions, 'minePhx');
@@ -932,9 +980,54 @@ dom.mineButton.addEventListener('click', async () => {
             }
         });
 
+        dom.copyXlmDonationButton.addEventListener('click', async () => {
+            const textToCopy = dom.xlmDonationAddress.textContent;
+            const statusElement = dom.copyXlmStatusMessage;
+        
+            if (!textToCopy) {
+                statusElement.textContent = 'Address not found.';
+                return;
+            }
+        
+            try {
+                if (isNative) {
+                    const { Clipboard } = Capacitor.Plugins;
+                    await Clipboard.write({ string: textToCopy });
+                } else {
+                    await navigator.clipboard.writeText(textToCopy);
+                }
+        
+                statusElement.textContent = 'Donation Address copied to clipboard!';
+                statusElement.style.color = '#4CAF50';
+                setTimeout(() => { statusElement.textContent = ''; }, 3000);
+        
+            } catch (err) {
+                statusElement.textContent = 'Failed to copy address.';
+                statusElement.style.color = '#ff6b6b';
+                console.error('Failed to copy donation address: ', err);
+            }
+        });
+        
+
 
     } catch (error) {
         console.error("Critical Error Initializing App:", error);
         document.body.innerHTML = '<div style="color: white; text-align: center; padding-top: 50px;">A critical error occurred. Please try refreshing the page.</div>';
     }
+
+    
+    
+
 });
+
+/*
+// =================================================================
+// PI NETWORK SDK INTEGRATION
+// =================================================================
+document.addEventListener('DOMContentLoaded', () => {
+
+    // 
+
+});
+*/
+

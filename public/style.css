@@ -804,3 +804,74 @@ button[type="submit"] {
     min-height: 90px; /* Prevents layout shift while ad loads */
     background-color: #1F1A24; /* Match app background */
 }
+
+/* Donation Section Styles */
+.benefit-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.benefit-list li {
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+.benefit-list li strong {
+    color: #FFA500;
+}
+
+.leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 1rem;
+}
+
+.leaderboard-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background-color: #2c2c2e;
+    margin-bottom: 0.5rem;
+}
+
+.leaderboard-rank {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #FFA500;
+    margin-right: 1rem;
+}
+
+.leaderboard-address {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leaderboard-amount {
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+/* Donation Page Style Adjustments */
+#donation-content .settings-card {
+    margin-bottom: 2.5rem; 
+}
+
+.settings-card h5 {
+    font-size: 1.2rem;   
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 1.25rem; 
+    color: #FFA500;
+}
+
+/* Add specific margin below the donation introduction text */
+#donation-content .info-text {
+    margin-bottom: 3rem; /* 문단과 아래 카드 사이의 간격을 늘립니다 */
+}

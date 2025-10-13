@@ -71,6 +71,20 @@ service cloud.firestore {
       allow get, list, update, delete: if isAdmin();
     }
 
+    // --- Donations Collection ---
+    // Anyone can read the leaderboard (via getDonationLeaderboard function).
+    // The backend function is trusted to write to this collection.
+    match /donations/{address} {
+      allow read;
+      allow write: if false; // Prevent direct client writes
+    }
+
+    // --- System Internal Data ---
+    // Only backend functions should be able to read/write this.
+    match /system/{docId} {
+      allow read, write: if false; // Prevent all client access
+    }
+
     // --- P2P Disputes Collection ---
     match /p2p_disputes/{disputeId} {
       // Admins can fully manage.

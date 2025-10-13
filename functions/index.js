@@ -84,18 +84,18 @@ exports.deleteAnnouncement = functions.region('us-central1').https.onCall(async 
 
 // GRAPH FUNCTIONS
 exports.addGraphDataPoint = functions.region('us-central1').https.onCall(graphLogic.addGraphDataPoint);
-exports.republishGraph = functions.region('us-central1').https.onCall(async (data, context) => {
-    if (context.auth?.uid !== ADMIN_UID) {
-        throw new functions.https.HttpsError("unauthenticated", "You must be an admin.");
-    }
-    try {
-        await graphLogic.publishGraphData();
-        return { status: 'success', message: 'Graph data has been successfully republished to Firebase Storage.' };
-    } catch (error) {
-        functions.logger.error("Manual republish failed:", error);
-        throw new functions.https.HttpsError("internal", "Failed to republish graph data.");
-    }
-});
+//exports.republishGraph = functions.region('us-central1').https.onCall(async (data, context) => {
+    //if (context.auth?.uid !== ADMIN_UID) {
+    //    throw new functions.https.HttpsError("unauthenticated", "You must be an admin.");
+    //}
+    //try {
+    //    await graphLogic.publishGraphData();
+    //    return { status: 'success', message: 'Graph data has been successfully republished to Firebase Storage.' };
+    //} catch (error) {
+    //    functions.logger.error("Manual republish failed:", error);
+    //    throw new functions.https.HttpsError("internal", "Failed to republish graph data.");
+    //}
+//});
 
 // USER REGISTRATION & KYC
 exports.registerUser = functions.region('us-central1').https.onCall(async (data, context) => {
@@ -501,4 +501,93 @@ exports.totalSupply = functions.region('us-central1').https.onRequest(async (req
     }
 });
 
+/**
+ * Fetches the donation leaderboard from the 'donations' collection.
+ * Queries Firestore for the top 100 contributors based on 'totalAmount'.
+ * @returns {Promise<Array<{address: string, amount: number}>>} A sorted array of top contributors.
+ */
+exports.getDonationLeaderboard = functions.https.onCall(async (data, context) => {
+    try {
+        const snapshot = await db.collection('donations')
+            .orderBy('totalAmount', 'desc')
+            .limit(100)
+            .get();
 
+        if (snapshot.empty) {
+            console.log("No donation records found.");
+            return [];
+        }
+
+        const leaderboard = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                address: doc.id, // Assuming the document ID is the wallet address
+                amount: data.totalAmount
+            };
+        });
+
+        return leaderboard;
+
+    } catch (error) {
+        console.error("Error fetching donation leaderboard:", error);
+        throw new functions.https.HttpsError('internal', 'Unable to fetch leaderboard. Please try again later.');
+    }
+});
+
+const StellarSdk = require('stellar-sdk');
+
+/**
+ * Periodically checks for new XLM donations on the Stellar network and updates
+ * the 'donations' collection in Firestore.
+ * This function is scheduled to run every 5 minutes.
+ */
+exports.processStellarDonations = functions.runWith({ memory: '256MB', timeoutSeconds: 300 }).pubsub.schedule('every 5 minutes').onRun(async (context) => {
+    const server = new StellarSdk.Horizon.Server('https://horizon.stellar.org');
+    const donationAccountId = 'GBX4GLP7JCG4TPMWYXIDECIO3ZLRGSYZ6JN4XHRLNM53ZFJM34U7HDDT'; // Your project's donation address
+    const cursorRef = db.collection('system').doc('donationCursor');
+
+    try {
+        const cursorDoc = await cursorRef.get();
+        const lastCursor = cursorDoc.exists ? cursorDoc.data().cursor : '0';
+
+        let newCursor = lastCursor;
+        const payments = await server.payments().forAccount(donationAccountId).cursor(lastCursor).limit(200).call();
+
+        if (payments.records.length === 0) {
+            console.log("No new donations found.");
+            return null;
+        }
+
+        for (const payment of payments.records) {
+            // Process only successful, native XLM payments made to our account
+            if (payment.type === 'payment' && payment.asset_type === 'native' && payment.to === donationAccountId) {
+                const fromAddress = payment.from;
+                const amount = parseFloat(payment.amount);
+
+                // Use a transaction to safely update the donation total
+                const donationRef = db.collection('donations').doc(fromAddress);
+                await db.runTransaction(async (transaction) => {
+                    const doc = await transaction.get(donationRef);
+                    if (!doc.exists) {
+                        transaction.set(donationRef, { totalAmount: amount });
+                    } else {
+                        const newTotal = doc.data().totalAmount + amount;
+                        transaction.update(donationRef, { totalAmount: newTotal });
+                    }
+                });
+                console.log(`Processed donation of ${amount} XLM from ${fromAddress}`);
+            }
+            newCursor = payment.paging_token;
+        }
+
+        // Save the latest cursor for the next run
+        await cursorRef.set({ cursor: newCursor });
+
+        return null;
+
+    } catch (error) {
+        console.error("Error processing Stellar donations:", error);
+        // Throwing an error will cause Pub/Sub to retry the function
+        throw new functions.https.HttpsError('internal', 'Failed to process donations.');
+    }
+});
