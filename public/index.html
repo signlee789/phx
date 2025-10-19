@@ -16,7 +16,7 @@
 <meta name="twitter:description" content="PHX is a decentralized digital currency designed for participation without high computational requirements or financial investment. Join us and start mining today!">
 <meta name="twitter:image" content="https://minephx.cloud/Logo.png">
 
-    <link rel="stylesheet" href="style.css?v=1.0.4">
+    <link rel="stylesheet" href="style.css?v=1.0.5">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="Logo.png">
     <meta name="theme-color" content="#1F1A24"/>
@@ -26,8 +26,6 @@
 
     <meta name="eaab8d5309d05c7590b273cdb2501f9be7a13a47" content="eaab8d5309d05c7590b273cdb2501f9be7a13a47" />
     <meta name="referrer" content="no-referrer-when-downgrade" />
-    <meta name="bitmedia-site-verification" content="000f0bf26e6c16d9eddab0a8e26e88c9" />
-    <meta name="coinzilla" content="c8d8290fdb4fafc080b8dbd325a365d5" />
 
 </head>
 <body>
@@ -102,10 +100,12 @@
             <nav id="main-nav">
                 <button class="nav-button active" data-section="mining-section">Mining</button>
                 <button class="nav-button" data-section="wallet-section">Wallet</button>
-                <button class="nav-button" data-section="referral-section">Referrals</button>
+                <button class="nav-button" data-section="referral-section">Refs</button>
                 <button class="nav-button" data-section="info-section">Info</button>
+                <button class="nav-button" data-section="dao-section">DAO</button>
                 <button id="admin-nav-button" class="nav-button hidden" data-section="admin-section">Admin</button>
             </nav>
+
             
             <div class="content-wrapper">
 
@@ -121,11 +121,14 @@
                         <div id="mine-timer">Loading...</div>
                     </div>
                     <!-- Graph Card -->
-                    <div class="overview-card">
-                        <p>PHX Total Supply Trend</p>
-                        <canvas id="phx-supply-chart"></canvas>
-                        <p id="chart-error-message" class="error-message hidden"></p>
-                    </div>
+<div class="overview-card">
+    <p>PHX Total Supply Trend</p>
+    <div class="graph-container-wrapper">
+        <canvas id="phx-supply-chart"></canvas>
+    </div>
+    <p id="chart-error-message" class="error-message hidden"></p>
+</div>
+
                 </section>
 
                 <!-- Wallet Section -->
@@ -224,6 +227,100 @@
                     <!-- Admin content is loaded and managed by admin.js -->
                     <iframe src="/admin.html" id="admin-iframe"></iframe>
                 </section>
+
+                <!-- DAO Section -->
+<section id="dao-section" class="app-section hidden">
+    <div id="dao-navigation">
+        <button class="dao-nav-button active" data-target="general-voting-content">General</button>
+        <button class="dao-nav-button" data-target="treasury-voting-content">Treasury</button>
+    </div>                
+
+    <div id="general-voting-content" class="dao-content-page">
+        <!-- Page Header -->
+        <div class="dao-header">
+            <h4>General Proposals</h4>
+            <button id="create-proposal-btn">Create Proposal</button>
+        </div>
+        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
+            <p><strong>Proposal & Voting Process:</strong></p>
+            <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
+                <li><strong>Proposal Creation:</strong> Requires KYC verification, a registered Stellar wallet, AND being a top 100 supporter.</li>
+                <li><strong>1st Round Vote:</strong> Conducted exclusively by the top 100 supporters to filter proposals.</li>
+                <li><strong>2nd & Final Vote:</strong> Conducted by all users who have completed KYC and registered their Stellar wallet.</li>
+            </ul>
+        </div>
+    
+        <!-- Proposal Creation Form (hidden by default) -->
+        <div id="general-proposal-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
+            <h5>New Proposal</h5>
+            <form id="general-proposal-form">
+                <input type="text" id="general-proposal-title" placeholder="Proposal Title" required maxlength="100">
+                <textarea id="general-proposal-description" placeholder="Describe your proposal in detail..." required maxlength="2000" rows="6"></textarea>
+                <div id="general-proposal-form-actions">
+                    <button type="submit">Submit for 1st Round Vote</button>
+                    <button type="button" id="cancel-general-proposal-btn">Cancel</button>
+                </div>
+                <p id="general-proposal-form-message" class="message"></p>
+            </form>
+        </div>
+    
+        <!-- Filter Navigation for General Proposals -->
+        <nav class="proposals-filter-nav" id="general-filter-nav">
+            <button class="filter-btn active" data-status="active">Active</button>
+            <button class="filter-btn" data-status="passed">Passed</button>
+            <button class="filter-btn" data-status="rejected">Rejected</button>
+        </nav>
+    
+        <!-- Container for General Proposal Lists -->
+        <div id="general-proposals-list-container">
+            <div id="general-proposals-list-active" class="proposals-list">
+                <p>No active proposals right now.</p>
+            </div>
+            <div id="general-proposals-list-passed" class="proposals-list hidden">
+                <p>No proposals have passed yet.</p>
+            </div>
+            <div id="general-proposals-list-rejected" class="proposals-list hidden">
+                <p>No proposals have been rejected yet.</p>
+            </div>
+        </div>
+    </div>
+    
+        <!-- Treasury Proposals Page -->
+        <div id="treasury-voting-content" class="dao-content-page hidden">
+            <div class="dao-header">
+                <h4>Treasury Proposals</h4>
+                <button id="create-treasury-proposal-btn" disabled>New Proposal</button>
+            </div>
+    
+            <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
+                <p>Proposals related to the distribution of the project's treasury funds. This may include funding for development, marketing, community events, or other initiatives.</p>
+                <p style="margin-top: 1rem;"><strong>Eligibility:</strong> Creating and voting on treasury proposals will be determined after the token is listed on an exchange and an on-chain voting mechanism is established.</p>
+            </div>
+    
+
+        <!-- Filter Navigation for Treasury Proposals -->
+        <nav class="proposals-filter-nav" id="treasury-filter-nav">
+            <button class="filter-btn active" data-status="active">Active</button>
+            <button class="filter-btn" data-status="passed">Passed</button>
+            <button class="filter-btn" data-status="rejected">Rejected</button>
+        </nav>
+
+        <!-- Container for Treasury Proposal Lists -->
+        <div id="treasury-proposals-list-container">
+            <div id="treasury-proposals-list-active" class="proposals-list">
+                <p>No active treasury proposals.</p>
+            </div>
+            <div id="treasury-proposals-list-passed" class="proposals-list hidden">
+                <p>No passed treasury proposals.</p>
+            </div>
+            <div id="treasury-proposals-list-rejected" class="proposals-list hidden">
+                <p>No rejected treasury proposals.</p>
+            </div>
+        </div>
+    </div>
+</section>
+                    
+
 
                 <!-- Info Section -->
                 <section id="info-section" class="app-section hidden">
@@ -413,7 +510,7 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script type="module" src="main.js?v=1.0.4"></script>
+    <script type="module" src="main.js?v=1.0.5"></script>
 
 
 </body>

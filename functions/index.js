@@ -30,9 +30,65 @@ const DEFAULT_REFERRAL_UID = 'CDK9P9ZRGJZlTVkVoRytJ9aq3Hw1';
 const MIN_WITHDRAWAL_AMOUNT = 37.07;
 const WITHDRAWAL_FEE = 0.1;
 
+
 // ===================================================================
 // EXPORTED CLOUD FUNCTIONS
 // ===================================================================
+
+// ===================================================================
+// INTERNAL HELPER FUNCTIONS (NOT EXPORTED)
+// ===================================================================
+
+/**
+ * [CRITICAL SECURITY FUNCTION]
+ * This is the single source of truth for determining if a user is eligible to create a DAO proposal.
+ *
+ * @param {string} uid The user ID to check.
+ * @returns {Promise<{eligible: boolean, reason: string, userWallet: string|null, userData: object|null}>} An object with eligibility status and details.
+ */
+const _isUserEligibleForProposal = async (uid) => {
+    try {
+        const userDocRef = db.collection('users').doc(uid);
+        const leaderboardRef = db.collection('governance').doc('leaderboard');
+        
+        const [userDoc, leaderboardDoc] = await Promise.all([
+            userDocRef.get(),
+            leaderboardRef.get()
+        ]);
+
+        if (!userDoc.exists) {
+            return { eligible: false, reason: 'User data not found.', userWallet: null, userData: null };
+        }
+        const userData = userDoc.data();
+        const userWallet = userData.walletAddress;
+
+        if (userData.kycStatus !== 'verified') {
+            return { eligible: false, reason: 'KYC is not verified.', userWallet, userData };
+        }
+        if (!userWallet) {
+            return { eligible: false, reason: 'Stellar wallet is not registered.', userWallet, userData };
+        }
+
+        if (!leaderboardDoc.exists) {
+            functions.logger.error("CRITICAL: Leaderboard document 'governance/leaderboard' not found.");
+            return { eligible: false, reason: 'Leaderboard data is currently unavailable.', userWallet, userData };
+        }
+        
+        const top100Entries = leaderboardDoc.data().top100_entries || [];
+        const top100Wallets = top100Entries.map(entry => entry.address);
+        
+        if (!top100Wallets.includes(userWallet)) {
+            return { eligible: false, reason: 'User is not in the top 100 supporters list.', userWallet, userData };
+        }
+
+        return { eligible: true, reason: 'User is eligible.', userWallet, userData };
+
+    } catch (error) {
+        functions.logger.error(`Critical error in _isUserEligibleForProposal for UID: ${uid}`, error);
+        return { eligible: false, reason: 'An internal server error occurred during eligibility check.', userWallet: null, userData: null };
+    }
+};
+
 
 // ANNOUNCEMENT FUNCTIONS
 exports.getAnnouncements = functions.region('us-central1').https.onCall(async (data, context) => {
@@ -503,36 +559,30 @@ exports.totalSupply = functions.region('us-central1').https.onRequest(async (req
 
 /**
  * Fetches the donation leaderboard from the 'donations' collection.
- * Queries Firestore for the top 100 contributors based on 'totalAmount'.
+ * This version fetches all data, then sorts and limits in memory to avoid indexing issues.
  * @returns {Promise<Array<{address: string, amount: number}>>} A sorted array of top contributors.
  */
-exports.getDonationLeaderboard = functions.https.onCall(async (data, context) => {
-    try {
-        const snapshot = await db.collection('donations')
-            .orderBy('totalAmount', 'desc')
-            .limit(100)
-            .get();
 
-        if (snapshot.empty) {
-            console.log("No donation records found.");
+exports.getDonationLeaderboard = functions.region('us-central1').https.onCall(async (data, context) => {
+    try {
+        const cacheRef = db.collection('governance').doc('leaderboard');
+        const doc = await cacheRef.get();
+
+        if (!doc.exists) {
+            functions.logger.warn("Leaderboard document could not be found.");
             return [];
         }
 
-        const leaderboard = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                address: doc.id, // Assuming the document ID is the wallet address
-                amount: data.totalAmount
-            };
-        });
-
-        return leaderboard;
+        const leaderboardData = doc.data();
+        return leaderboardData.top100_entries || [];
 
     } catch (error) {
-        console.error("Error fetching donation leaderboard:", error);
-        throw new functions.https.HttpsError('internal', 'Unable to fetch leaderboard. Please try again later.');
+        functions.logger.error("A critical error occurred while fetching the donation leaderboard:", error);
+        throw new functions.https.HttpsError('internal', 'Failed to fetch the leaderboard due to a server error.');
     }
 });
+
+
 
 const StellarSdk = require('stellar-sdk');
 
@@ -571,8 +621,9 @@ exports.processStellarDonations = functions.runWith({ memory: '256MB', timeoutSe
                     if (!doc.exists) {
                         transaction.set(donationRef, { totalAmount: amount });
                     } else {
-                        const newTotal = doc.data().totalAmount + amount;
-                        transaction.update(donationRef, { totalAmount: newTotal });
+                        const existingAmount = Number(doc.data().totalAmount) || 0;
+const newTotal = existingAmount + amount;
+transaction.update(donationRef, { totalAmount: newTotal });
                     }
                 });
                 console.log(`Processed donation of ${amount} XLM from ${fromAddress}`);
@@ -591,3 +642,390 @@ exports.processStellarDonations = functions.runWith({ memory: '256MB', timeoutSe
         throw new functions.https.HttpsError('internal', 'Failed to process donations.');
     }
 });
+
+/**
+ * ===================================================================
+ *                         DAO Cloud Functions
+ * ===================================================================
+ */
+
+exports.getGeneralProposals = functions.https.onCall(async (data, context) => {
+    try {
+        const snapshot = await db.collection('proposals').orderBy('createdAt', 'desc').get();
+        if (snapshot.empty) {
+            return [];
+        }
+        // Map snapshot to include document ID and data
+        const proposals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return proposals;
+    } catch (error) {
+        functions.logger.error("Error fetching general proposals:", error);
+        throw new functions.https.HttpsError('internal', 'An error occurred while fetching proposals.');
+    }
+});
+
+
+exports.createGeneralProposal = functions.https.onCall(async (data, context) => {
+    // --- Final Diagnosis Step: Write all execution stages directly to Firestore ---
+    const debugRef = db.collection('debug_proposal').doc('last_attempt');
+    const uid = context.auth ? context.auth.uid : null;
+
+    // 1. Authentication Check
+    if (!uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in.');
+    }
+
+    // Record the start of the function call
+    await debugRef.set({
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'Function Invoked',
+        uid: uid,
+        clientData: data
+    });
+
+    // 2. Input Validation
+    const { title, description } = data;
+    if (!title || !description || typeof title !== 'string' || typeof description !== 'string' || title.length > 100 || description.length > 2000) {
+        await debugRef.update({ status: 'Finished', result: 'Validation failed: Invalid input.' });
+        throw new functions.https.HttpsError('invalid-argument', 'Title and description are required and must be within length limits.');
+    }
+
+    try {
+        // 3. Server-Side Eligibility Verification (The most important part)
+        const { eligible, reason, userWallet, userData } = await _isUserEligibleForProposal(uid);
+
+        // --- Log the critical diagnostic information ---
+        // This saves all the data the server used for its decision.
+        await debugRef.update({
+            status: 'Eligibility Check Completed',
+            checkResult: { eligible, reason }, // The eligibility result
+            checkedUser: { // The user info that was checked
+                uid, 
+                wallet: userWallet, 
+                kycStatus: userData ? userData.kycStatus : 'not_found' 
+            }
+        });
+
+        // 4. If not eligible, this MUST block execution.
+        if (!eligible) {
+            await debugRef.update({ result: `BLOCK: Proposal creation was correctly blocked. Reason: ${reason}` });
+            throw new functions.https.HttpsError('failed-precondition', `You are not eligible to create a proposal. Reason: ${reason}`);
+        }
+
+        // 5. If eligible, create the proposal.
+        const proposalRef = db.collection('proposals').doc();
+        await proposalRef.set({
+            title, description,
+            proposerId: uid,
+            proposerAddress: userWallet,
+            proposerEmail: userData.email || '',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            status: 'active_round1', type: 'general',
+            round1Votes: {}, round2Votes: {},
+            voteCounts: { round1_for: 0, round1_against: 0, round2_for: 0, round2_against: 0 }
+        });
+        
+        // Log successful creation
+        await debugRef.update({ status: 'Finished', result: 'ALLOW: Success! Proposal created.', proposalId: proposalRef.id });
+        
+        return { status: 'success', message: 'Your proposal has been submitted.', proposalId: proposalRef.id };
+
+    } catch (error) {
+        // Log any unexpected errors
+        if (!(error instanceof functions.https.HttpsError)) {
+            await debugRef.update({
+                status: 'Finished',
+                result: 'CRITICAL UNEXPECTED ERROR',
+                errorMessage: error.message
+            });
+        }
+        functions.logger.error('Error creating proposal:', error);
+        throw error;
+    }
+});
+
+
+
+
+// Replace the existing updateLeaderboardCache function with this one.
+exports.updateLeaderboardCache = functions.pubsub.schedule('every 10 minutes').onRun(async (context) => {
+    functions.logger.log('Running scheduled job: updateLeaderboardCache');
+    try {
+        const snapshot = await db.collection('donations').get();
+        
+        // This is the key fix:
+        // If the donations collection appears empty (e.g., due to a temporary glitch),
+        // we will NOT modify the existing leaderboard to prevent data loss.
+        if (snapshot.empty) {
+            functions.logger.warn('Donations collection appears empty. To prevent data loss, the leaderboard cache will not be modified.');
+            return null;
+        }
+
+        let leaderboard = snapshot.docs.map(doc => ({
+            address: doc.id,
+            amount: Number(doc.data().totalAmount) || 0
+        }));
+        
+        leaderboard.sort((a, b) => b.amount - a.amount);
+        const top100Entries = leaderboard.slice(0, 100);
+
+        const cacheRef = db.collection('governance').doc('leaderboard');
+        await cacheRef.set({
+            top100_entries: top100Entries, 
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        functions.logger.log(`Successfully updated leaderboard cache with ${top100Entries.length} supporters.`);
+        return null;
+
+    } catch (error) {
+        // If any other error occurs, we will also protect the existing cache by not touching it.
+        functions.logger.error('CRITICAL: Failed to update leaderboard cache. The existing cache was NOT modified.', error);
+        return null;
+    }
+});
+
+
+/**
+ * Records a vote for a proposal's first round and automatically determines the outcome.
+ * This function is optimized for reliability, first establishing the voter pool size
+ * (Top 100 Supporters) and then using a transaction for the vote itself.
+ */
+exports.voteOnProposal = functions.https.onCall(async (data, context) => {
+    // 1. Authentication Check: Ensure the user is logged in.
+    const uid = context.auth?.uid;
+    if (!uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to vote.');
+    }
+
+    // 2. Input Validation: Check for a valid proposalId and vote option.
+    const { proposalId, vote } = data;
+    if (!proposalId || !['for', 'against'].includes(vote)) {
+        throw new functions.https.HttpsError('invalid-argument', 'A valid proposal ID and vote ("for" or "against") are required.');
+    }
+
+    // 3. Get Round 1 Eligible Voters (Top 100)
+    // This is done before the transaction to define the static voter pool for this vote.
+    const leaderboardRef = db.collection('governance').doc('leaderboard');
+    let top100Wallets = [];
+    try {
+        const leaderboardDoc = await leaderboardRef.get();
+        if (!leaderboardDoc.exists) {
+            throw new functions.https.HttpsError('internal', 'Governance data is unavailable. Cannot verify voter eligibility.');
+        }
+        top100Wallets = (leaderboardDoc.data().top100_entries || []).map(e => e.address);
+    } catch (error) {
+        functions.logger.error("Failed to get leaderboard for Round 1 vote:", error);
+        if (error instanceof functions.https.HttpsError) throw error;
+        throw new functions.https.HttpsError('internal', 'Could not retrieve voter eligibility list.');
+    }
+    
+    const totalEligibleVoters = top100Wallets.length;
+    if (totalEligibleVoters === 0) {
+        throw new functions.https.HttpsError('failed-precondition', 'There are no eligible voters defined yet for Round 1.');
+    }
+
+    // Define user and proposal references for the transaction
+    const userRef = db.collection('users').doc(uid);
+    const proposalRef = db.collection('proposals').doc(proposalId);
+
+    try {
+        // 4. Use a Firestore transaction for the atomic voting operation.
+        await db.runTransaction(async (transaction) => {
+            const [userDoc, proposalDoc] = await Promise.all([
+                transaction.get(userRef),
+                transaction.get(proposalRef)
+            ]);
+
+            // 5. Validation and Eligibility Checks inside the transaction
+            if (!userDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'Your user data could not be found.');
+            }
+            if (!proposalDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'The specified proposal does not exist.');
+            }
+
+            const userData = userDoc.data();
+            const proposalData = proposalDoc.data();
+            const userWallet = userData.walletAddress;
+
+            // Check if the current user is in the list of eligible voters.
+            if (!userWallet || !top100Wallets.includes(userWallet)) {
+                throw new functions.https.HttpsError('failed-precondition', 'You are not eligible to vote in Round 1.');
+            }
+            // Check if the proposal is in the correct voting phase.
+            if (proposalData.status !== 'active_round1') {
+                throw new functions.https.HttpsError('failed-precondition', `This proposal is not in the active voting phase (Round 1). Current status: ${proposalData.status}`);
+            }
+            // Prevent duplicate votes.
+            if (proposalData.round1Votes && proposalData.round1Votes[uid]) {
+                throw new functions.https.HttpsError('already-exists', 'You have already cast your vote on this proposal.');
+            }
+
+            // 6. Record the new vote.
+            const newVoteCountFor = (proposalData.voteCounts.round1_for || 0) + (vote === 'for' ? 1 : 0);
+            const newVoteCountAgainst = (proposalData.voteCounts.round1_against || 0) + (vote === 'against' ? 1 : 0);
+
+            let updateData = {
+                [`round1Votes.${uid}`]: vote,
+                'voteCounts.round1_for': newVoteCountFor,
+                'voteCounts.round1_against': newVoteCountAgainst
+            };
+
+            // 7. Tally results and determine the outcome based on your rules.
+            
+            // PASS Condition: Votes 'for' must be MORE THAN 50% of total eligible voters.
+            if (newVoteCountFor > totalEligibleVoters / 2) {
+                updateData.status = 'active_round2'; // Pass! Change status to Round 2.
+            }
+            // FAIL Condition: Votes 'against' reach 50% or more (includes ties).
+            else if (newVoteCountAgainst >= totalEligibleVoters / 2) {
+                updateData.status = 'rejected'; // Fail!
+            }
+
+            // Commit all the changes to the database.
+            transaction.update(proposalRef, updateData);
+        });
+
+        return { status: 'success', message: 'Your vote has been successfully recorded.' };
+
+    } catch (error) {
+        functions.logger.error(`Error casting vote for user ${uid} on proposal ${proposalId}:`, error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        } else {
+            throw new functions.https.HttpsError('internal', 'An unexpected error occurred while casting your vote.');
+        }
+    }
+});
+
+/**
+ * Records a vote for the second and final round of a proposal.
+ * This version is enhanced for reliability by first querying the total number of
+ * eligible voters and then using that number within a transaction to tally the results.
+ */
+exports.voteOnProposalRound2 = functions.https.onCall(async (data, context) => {
+    // 1. Authentication Check: Ensure the user is logged in.
+    const uid = context.auth?.uid;
+    if (!uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to vote.');
+    }
+
+    // 2. Input Validation: Check for a valid proposalId and vote option.
+    const { proposalId, vote } = data;
+    if (!proposalId || !['for', 'against'].includes(vote)) {
+        throw new functions.https.HttpsError('invalid-argument', 'A valid proposal ID and vote ("for" or "against") are required.');
+    }
+
+    // 3. Count Total Eligible Voters for Round 2
+    // This query is performed before the transaction to establish the voter pool size.
+    let totalEligibleVoters = 0;
+    try {
+        const eligibleVotersSnapshot = await db.collection('users')
+            .where('kycStatus', '==', 'verified')
+            .get();
+
+        eligibleVotersSnapshot.forEach(doc => {
+            if (doc.data().walletAddress) {
+                totalEligibleVoters++;
+            }
+        });
+    } catch (error) {
+        functions.logger.error("Failed to count eligible voters for Round 2:", error);
+        throw new functions.https.HttpsError('internal', 'Could not determine the number of eligible voters.');
+    }
+
+    if (totalEligibleVoters === 0) {
+        throw new functions.https.HttpsError('failed-precondition', 'There are no users eligible to vote in the final round.');
+    }
+
+    // Define database references
+    const userRef = db.collection('users').doc(uid);
+    const proposalRef = db.collection('proposals').doc(proposalId);
+    
+    try {
+        // 4. Use a Firestore transaction to ensure atomic read/write operations.
+        await db.runTransaction(async (transaction) => {
+            const [userDoc, proposalDoc] = await Promise.all([
+                transaction.get(userRef),
+                transaction.get(proposalRef)
+            ]);
+
+            // 5. Validation and Eligibility Checks inside the transaction
+            if (!userDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'Your user data could not be found.');
+            }
+            if (!proposalDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'The specified proposal does not exist.');
+            }
+
+            const userData = userDoc.data();
+            const proposalData = proposalDoc.data();
+
+            // Check voter's personal eligibility (KYC status and wallet)
+            if (userData.kycStatus !== 'verified' || !userData.walletAddress) {
+                throw new functions.https.HttpsError('failed-precondition', 'You must complete KYC and register a wallet to vote in the final round.');
+            }
+            // Check if the proposal is in the correct voting phase
+            if (proposalData.status !== 'active_round2') {
+                throw new functions.https.HttpsError('failed-precondition', `This proposal is not in the final voting phase. Current status: ${proposalData.status}`);
+            }
+            // Prevent duplicate voting
+            if (proposalData.round2Votes && proposalData.round2Votes[uid]) {
+                throw new functions.https.HttpsError('already-exists', 'You have already cast your vote in this final round.');
+            }
+
+            // 6. Record the new vote
+            const newVoteCountFor = (proposalData.voteCounts.round2_for || 0) + (vote === 'for' ? 1 : 0);
+            const newVoteCountAgainst = (proposalData.voteCounts.round2_against || 0) + (vote === 'against' ? 1 : 0);
+
+            let updateData = {
+                [`round2Votes.${uid}`]: vote,
+                'voteCounts.round2_for': newVoteCountFor,
+                'voteCounts.round2_against': newVoteCountAgainst
+            };
+
+            // 7. Tally results and determine the final outcome based on your rules.
+            
+            // PASS Condition: Votes 'for' must be MORE THAN 50% of total eligible voters.
+            if (newVoteCountFor > totalEligibleVoters / 2) {
+                updateData.status = 'passed'; // Final Pass!
+            }
+            // FAIL Condition: Votes 'against' reach 50% or more (includes ties).
+            else if (newVoteCountAgainst >= totalEligibleVoters / 2) {
+                updateData.status = 'rejected'; // Final Fail!
+            }
+            
+            // Commit all changes to the database
+            transaction.update(proposalRef, updateData);
+        });
+
+        return { status: 'success', message: 'Your final vote has been successfully recorded.' };
+
+    } catch (error) {
+        functions.logger.error(`Error casting final vote for user ${uid} on proposal ${proposalId}:`, error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error; // Re-throw specific HTTPS errors to the client
+        } else {
+            throw new functions.https.HttpsError('internal', 'An unexpected error occurred while casting your final vote.');
+        }
+    }
+});
+
+/**
+ * [CLIENT-FACING] Checks if the calling user is eligible to create a DAO proposal.
+ * This function now securely calls the internal, single-source-of-truth function.
+ */
+exports.checkDaoEligibility = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in to check eligibility.');
+    }
+    const uid = context.auth.uid;
+
+    const { eligible } = await _isUserEligibleForProposal(uid);
+    
+    // Return only the 'eligible' status to the client for security and simplicity.
+    return { eligible }; 
+});
+
+

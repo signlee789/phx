@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, orderBy, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, orderBy, getDocs, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 import { firebaseConfig } from './firebase-config.js';
@@ -184,6 +184,10 @@ if (isNative) {
             infoNavCards: document.querySelectorAll('.info-nav-card'),
             infoContentPages: document.querySelectorAll('.info-content-page'),
             backToInfoBtns: document.querySelectorAll('.back-to-info-btn'),
+
+            daoNavButtons: document.querySelectorAll('.dao-nav-button'),
+            daoContentPages: document.querySelectorAll('.dao-content-page'),
+
             announcementsList: document.getElementById('announcements-list'),
             copyIssuerButton: document.getElementById('copy-issuer-button'),
             issuerAddress: document.getElementById('issuer-address'),
@@ -290,7 +294,7 @@ if (isNative) {
                 dom.infoNavigation.classList.remove('hidden');
                 dom.infoContentPages.forEach(page => page.classList.add('hidden'));
             });
-        });
+        });   
 
         // --- P2P Navigation ---
         if (dom.p2pButton) {
@@ -625,6 +629,8 @@ if (isNative) {
             dom.userEmailDisplay.textContent = currentUser.email;
             dom.referralCodeDisplay.textContent = uid;
             showMainSection('mining-section');
+            initDaoSection(auth, db, functions);
+
         }
 
 
@@ -1020,14 +1026,291 @@ dom.mineButton.addEventListener('click', async () => {
 
 });
 
-/*
-// =================================================================
-// PI NETWORK SDK INTEGRATION
-// =================================================================
-document.addEventListener('DOMContentLoaded', () => {
+/**
+ * Initializes the entire DAO section functionality, aligning with server-side voting rules.
+ * This includes eligibility checks, correct vote rendering, and handling all interactions.
+ */
+function initDaoSection(auth, db, functions) {
+        // --- CORRECTED Element Selectors ---
+        const daoNavButtons = document.querySelectorAll('#dao-navigation .dao-nav-button');
 
-    // 
+        // General Tab Elements
+        const createProposalBtn = document.getElementById('create-proposal-btn');
+        const proposalFormContainer = document.getElementById('general-proposal-form-container');
+        const cancelProposalBtn = document.getElementById('cancel-general-proposal-btn');
+        const proposalForm = document.getElementById('general-proposal-form');
+        const proposalFormMessage = document.getElementById('general-proposal-form-message');
+        const filterNav = document.getElementById('general-filter-nav');
+        const proposalLists = {
+            active: document.getElementById('general-proposals-list-active'),
+            passed: document.getElementById('general-proposals-list-passed'),
+            rejected: document.getElementById('general-proposals-list-rejected'),
+        };
+    
+        // Treasury Tab Elements
+        const treasuryFilterNav = document.getElementById('treasury-filter-nav');
+        const treasuryListsContainer = document.getElementById('treasury-proposals-list-container');
+    
 
-});
-*/
+    // --- Core Functions ---
 
+    createProposalBtn.addEventListener('click', () => {
+        proposalFormContainer.classList.remove('hidden');
+        createProposalBtn.style.display = 'none';
+    });
+
+    async function renderDaoPage() {
+        if (!createProposalBtn || !proposalFormContainer || Object.values(proposalLists).some(el => !el)) {
+            return;
+        }
+        try {
+            const currentUserUID = auth.currentUser ? auth.currentUser.uid : null;
+            const checkEligibilityFunc = httpsCallable(functions, 'checkDaoEligibility');
+            const eligibilityResult = await checkEligibilityFunc();
+            createProposalBtn.style.display = eligibilityResult.data.eligible ? 'block' : 'none';
+
+            Object.values(proposalLists).forEach(list => { if (list) list.innerHTML = '<div class="spinner"></div>'; });
+
+            const proposalsSnapshot = await getDocs(collection(db, 'proposals'));
+            let proposals = proposalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            proposals.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+            Object.values(proposalLists).forEach(list => { if (list) list.innerHTML = ''; });
+            let proposalCounts = { active: 0, passed: 0, rejected: 0 };
+
+            if (proposals.length > 0) {
+                proposals.forEach(proposal => {
+                    const status = proposal.status || 'unknown';
+                    const displayStatus = status.startsWith('active_') ? 'active' : status;
+                    const listContainer = proposalLists[displayStatus];
+
+                    if (listContainer) {
+                        const proposalEl = document.createElement('div');
+                        proposalEl.className = 'proposal-item';
+                        proposalEl.dataset.proposalId = proposal.id;
+
+                        const voteCounts = proposal.voteCounts || {};
+                        let forCount = 0, againstCount = 0, totalVotes = 0, hasVoted = false, roundText = '';
+
+                        if (status === 'active_round1') {
+                            forCount = voteCounts.round1_for || 0;
+                            againstCount = voteCounts.round1_against || 0;
+                            hasVoted = currentUserUID && proposal.round1Votes && proposal.round1Votes[currentUserUID];
+                            roundText = 'Round 1: Top 100 Supporters Vote';
+                        } else if (status === 'active_round2') {
+                            forCount = voteCounts.round2_for || 0;
+                            againstCount = voteCounts.round2_against || 0;
+                            hasVoted = currentUserUID && proposal.round2Votes && proposal.round2Votes[currentUserUID];
+                            roundText = 'Round 2: Final Vote (All KYC Users)';
+                        }
+                        
+                        totalVotes = forCount + againstCount;
+                        const forPercentage = totalVotes > 0 ? (forCount / totalVotes) * 100 : 0;
+                        const againstPercentage = totalVotes > 0 ? (againstCount / totalVotes) * 100 : 0;
+                        
+                        let voteButtonsHTML = '';
+                        if (displayStatus === 'active') {
+                            if (hasVoted) {
+                                voteButtonsHTML = `<div class="vote-message">You have already voted in this round.</div>`;
+                            } else {
+                                voteButtonsHTML = `
+                                    <div class="vote-actions">
+                                        <button class="vote-btn" data-vote="for">Vote For</button>
+                                        <button class="vote-btn" data-vote="against">Vote Against</button>
+                                    </div>
+                                    <div class="vote-message"></div>
+                                `;
+                            }
+                        }
+                        
+                        // *** THIS IS THE CRITICAL HTML LOGIC THAT WAS MISSING ***
+                        proposalEl.innerHTML = `
+                            <div class="proposal-header">
+                                <h5 class="proposal-title">${proposal.title}</h5>
+                                <span class="proposal-status-badge status-${displayStatus}">${roundText || status.replace('_', ' ')}</span>
+                            </div>
+                            <p class="proposal-description">${proposal.description}</p>
+                            <div class="vote-summary">
+                                <div class="vote-bar">
+                                    <div class="vote-bar-for" style="width: ${forPercentage}%"></div>
+                                    <div class="vote-bar-against" style="width: ${againstPercentage}%"></div>
+                                </div>
+                                <div class="vote-counts">
+                                    <span>For: ${forCount} (${forPercentage.toFixed(1)}%)</span>
+                                    <span>Against: ${againstCount} (${againstPercentage.toFixed(1)}%)</span>
+                                </div>
+                            </div>
+                            ${voteButtonsHTML}
+                        `;
+
+                        listContainer.appendChild(proposalEl);
+                        proposalCounts[displayStatus]++;
+                    }
+                });
+            }
+            
+            for (const key in proposalCounts) {
+                if (proposalCounts[key] === 0 && proposalLists[key]) {
+                    proposalLists[key].innerHTML = `<li>No ${key} proposals found.</li>`;
+                }
+            }
+
+        } catch (error) {
+            console.error("Error rendering DAO page:", error);
+            if(createProposalBtn) {
+                 createProposalBtn.textContent = 'Error Loading';
+                 createProposalBtn.disabled = true;
+            }
+        }
+    }
+
+
+    proposalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = proposalForm.querySelector('#general-proposal-title').value; // CORRECT
+        const description = proposalForm.querySelector('#general-proposal-description').value; // CORRECT
+        if (!title.trim() || !description.trim()) {
+            proposalFormMessage.textContent = 'Title and description are required.';
+            return;
+        }
+        const submitBtn = proposalForm.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        try {
+            const createGeneralProposal = httpsCallable(functions, 'createGeneralProposal');
+            await createGeneralProposal({ title, description });
+            proposalFormMessage.textContent = 'Success! Refreshing...';
+            await renderDaoPage();
+            setTimeout(() => {
+                proposalForm.reset();
+                proposalFormContainer.classList.add('hidden');
+                createProposalBtn.style.display = 'block';
+                proposalFormMessage.textContent = '';
+                if(filterNav.querySelector('.filter-btn[data-status="active"]')) {
+                    filterNav.querySelector('.filter-btn[data-status="active"]').click();
+                }
+            }, 2000);
+        } catch (error) {
+            proposalFormMessage.textContent = `Error: ${error.message}`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit for 1st Round Vote';
+        }
+    });
+
+    cancelProposalBtn.addEventListener('click', () => {
+        proposalForm.reset();
+        proposalFormMessage.textContent = '';
+        proposalFormContainer.classList.add('hidden');
+        createProposalBtn.style.display = 'block';
+    });
+
+            // --- UNIFIED AND SAFE UI CONTROL LOGIC ---
+
+    // Main Tab Navigation
+    if(daoNavButtons.length > 0) {
+        daoNavButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.dataset.target;
+                document.querySelectorAll('.dao-content-page').forEach(page => page.classList.add('hidden'));
+                const targetPage = document.getElementById(targetId);
+                if (targetPage) targetPage.classList.remove('hidden');
+
+                daoNavButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+            });
+        });
+    }
+
+    // Treasury Proposals Filter Logic
+    if (treasuryFilterNav) {
+        treasuryFilterNav.addEventListener('click', (e) => {
+            if (!e.target.matches('.filter-btn')) return;
+
+            treasuryFilterNav.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+
+            const status = e.target.dataset.status;
+            if (treasuryListsContainer) {
+                treasuryListsContainer.querySelectorAll('.proposals-list').forEach(list => {
+                    if (list.id.endsWith('-' + status)) {
+                        list.classList.remove('hidden');
+                    } else {
+                        list.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    }
+
+
+
+    if (filterNav) {
+        filterNav.addEventListener('click', (e) => {
+            if (!e.target.matches('.filter-btn')) return;
+            filterNav.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            const status = e.target.dataset.status;
+            Object.values(proposalLists).forEach(list => list.classList.add('hidden'));
+            if (proposalLists[status]) proposalLists[status].classList.remove('hidden');
+        });
+    }
+
+    Object.values(proposalLists).forEach(list => {
+        list.addEventListener('click', async (e) => {
+            if (!e.target.matches('.vote-btn')) return;
+            const button = e.target;
+            const proposalItem = button.closest('.proposal-item');
+            if (!proposalItem) return;
+            const proposalId = proposalItem.dataset.proposalId;
+            const vote = button.dataset.vote;
+            const actionsContainer = proposalItem.querySelector('.vote-actions');
+            const messageEl = proposalItem.querySelector('.vote-message');
+            if (actionsContainer) actionsContainer.style.display = 'none';
+            if (messageEl) {
+                messageEl.className = 'vote-message';
+                messageEl.textContent = 'Submitting vote...';
+            }
+            try {
+                if (!auth.currentUser) throw new Error("You must be logged in to vote.");
+                
+                // Read status from the badge's text content for accuracy
+                const statusBadge = proposalItem.querySelector('.proposal-status-badge');
+                let statusText = statusBadge.textContent.trim();
+                let status;
+
+                if(statusText.includes('Round 1')){
+                    status = 'active_round1';
+                } else if (statusText.includes('Round 2')){
+                    status = 'active_round2';
+                } else {
+                    status = statusText.replace(' ', '_');
+                }
+                
+                const voteFunction = (status === 'active_round1') ? httpsCallable(functions, 'voteOnProposal') : (status === 'active_round2') ? httpsCallable(functions, 'voteOnProposalRound2') : null;
+                
+                if (!voteFunction) throw new Error("This proposal is not in an active voting phase.");
+
+                await voteFunction({ proposalId, vote });
+                await renderDaoPage();
+            } catch (error) {
+                console.error("Voting error:", error);
+                if (messageEl) {
+                    messageEl.textContent = error.message;
+                    messageEl.className = 'vote-message error';
+                }
+                // Re-show buttons only if there was an error and a container exists
+                if (actionsContainer) actionsContainer.style.display = 'flex';
+            }
+        });
+    });
+
+    // --- Initial State Setup ---
+    if (daoNavButtons.length > 0) daoNavButtons[0].click();
+    if (filterNav && filterNav.querySelector('.filter-btn')) {
+        filterNav.querySelector('.filter-btn[data-status="active"]').click();
+    }
+
+    renderDaoPage(); // Initial call to load proposals
+
+}
