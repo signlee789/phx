@@ -1027,62 +1027,80 @@ dom.mineButton.addEventListener('click', async () => {
 });
 
 /**
- * Initializes the entire DAO section functionality, aligning with server-side voting rules.
- * This includes eligibility checks, correct vote rendering, and handling all interactions.
+ * Initializes the entire DAO section, with separate logic for General and Treasury proposals.
  */
 function initDaoSection(auth, db, functions) {
-        // --- CORRECTED Element Selectors ---
-        const daoNavButtons = document.querySelectorAll('#dao-navigation .dao-nav-button');
-
-        // General Tab Elements
-        const createProposalBtn = document.getElementById('create-proposal-btn');
-        const proposalFormContainer = document.getElementById('general-proposal-form-container');
-        const cancelProposalBtn = document.getElementById('cancel-general-proposal-btn');
-        const proposalForm = document.getElementById('general-proposal-form');
-        const proposalFormMessage = document.getElementById('general-proposal-form-message');
-        const filterNav = document.getElementById('general-filter-nav');
-        const proposalLists = {
-            active: document.getElementById('general-proposals-list-active'),
-            passed: document.getElementById('general-proposals-list-passed'),
-            rejected: document.getElementById('general-proposals-list-rejected'),
-        };
     
-        // Treasury Tab Elements
-        const treasuryFilterNav = document.getElementById('treasury-filter-nav');
-        const treasuryListsContainer = document.getElementById('treasury-proposals-list-container');
+    // --- DOM Element Cache ---
+    const daoNavButtons = document.querySelectorAll('#dao-navigation .dao-nav-button');
     
+    // General Tab Elements
+    const createGeneralProposalBtn = document.getElementById('create-proposal-btn');
+    const generalProposalFormContainer = document.getElementById('general-proposal-form-container');
+    const cancelGeneralProposalBtn = document.getElementById('cancel-general-proposal-btn');
+    const generalProposalForm = document.getElementById('general-proposal-form');
+    const generalProposalFormMessage = document.getElementById('general-proposal-form-message');
+    const generalFilterNav = document.getElementById('general-filter-nav');
+    const generalProposalLists = {
+        active: document.getElementById('general-proposals-list-active'),
+        passed: document.getElementById('general-proposals-list-passed'),
+        rejected: document.getElementById('general-proposals-list-rejected'),
+    };
 
-    // --- Core Functions ---
+    // Treasury Tab Elements
+    const createTreasuryProposalBtn = document.getElementById('create-treasury-proposal-btn');
+    const treasuryProposalFormContainer = document.getElementById('treasury-proposal-form-container');
+    const cancelTreasuryProposalBtn = document.getElementById('cancel-treasury-proposal-btn');
+    const treasuryProposalForm = document.getElementById('treasury-proposal-form');
+    const treasuryProposalFormMessage = document.getElementById('treasury-proposal-form-message');
+    const treasuryFilterNav = document.getElementById('treasury-filter-nav');
+    const treasuryProposalLists = {
+        active: document.getElementById('treasury-proposals-list-active'),
+        passed: document.getElementById('treasury-proposals-list-passed'),
+        rejected: document.getElementById('treasury-proposals-list-rejected'),
+    };
 
-    createProposalBtn.addEventListener('click', () => {
-        proposalFormContainer.classList.remove('hidden');
-        createProposalBtn.style.display = 'none';
-    });
 
-    async function renderDaoPage() {
-        if (!createProposalBtn || !proposalFormContainer || Object.values(proposalLists).some(el => !el)) {
-            return;
-        }
+    // --- Cloud Function Callables ---
+    const checkDaoEligibility = httpsCallable(functions, 'checkDaoEligibility');
+    // General
+    const createGeneralProposal = httpsCallable(functions, 'createGeneralProposal');
+    const voteOnProposal = httpsCallable(functions, 'voteOnProposal');
+    const voteOnProposalRound2 = httpsCallable(functions, 'voteOnProposalRound2');
+    // Treasury
+    const createTreasuryProposal = httpsCallable(functions, 'createTreasuryProposal');
+    const voteOnTreasuryProposalRound1 = httpsCallable(functions, 'voteOnTreasuryProposalRound1');
+    const voteOnTreasuryProposalRound2 = httpsCallable(functions, 'voteOnTreasuryProposalRound2');
+
+
+    // --- Core Rendering Functions ---
+
+    /**
+     * Renders proposals for the GENERAL tab.
+     */
+    async function renderGeneralProposals() {
+        if (Object.values(generalProposalLists).some(el => !el)) return;
+
         try {
-            const currentUserUID = auth.currentUser ? auth.currentUser.uid : null;
-            const checkEligibilityFunc = httpsCallable(functions, 'checkDaoEligibility');
-            const eligibilityResult = await checkEligibilityFunc();
-            createProposalBtn.style.display = eligibilityResult.data.eligible ? 'block' : 'none';
+            // Check eligibility and show/hide the "New Proposal" button
+            const eligibilityResult = await checkDaoEligibility();
+            if(createGeneralProposalBtn) createGeneralProposalBtn.style.display = eligibilityResult.data.eligible ? 'block' : 'none';
 
-            Object.values(proposalLists).forEach(list => { if (list) list.innerHTML = '<div class="spinner"></div>'; });
+            Object.values(generalProposalLists).forEach(list => list.innerHTML = '<div class="spinner"></div>');
 
-            const proposalsSnapshot = await getDocs(collection(db, 'proposals'));
+            const proposalsSnapshot = await getDocs(query(collection(db, 'proposals'), orderBy('createdAt', 'desc')));
+            
             let proposals = proposalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            proposals.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
-            Object.values(proposalLists).forEach(list => { if (list) list.innerHTML = ''; });
+            Object.values(generalProposalLists).forEach(list => list.innerHTML = '');
             let proposalCounts = { active: 0, passed: 0, rejected: 0 };
 
             if (proposals.length > 0) {
+                const currentUserUID = auth.currentUser ? auth.currentUser.uid : null;
                 proposals.forEach(proposal => {
                     const status = proposal.status || 'unknown';
                     const displayStatus = status.startsWith('active_') ? 'active' : status;
-                    const listContainer = proposalLists[displayStatus];
+                    const listContainer = generalProposalLists[displayStatus];
 
                     if (listContainer) {
                         const proposalEl = document.createElement('div');
@@ -1108,22 +1126,10 @@ function initDaoSection(auth, db, functions) {
                         const forPercentage = totalVotes > 0 ? (forCount / totalVotes) * 100 : 0;
                         const againstPercentage = totalVotes > 0 ? (againstCount / totalVotes) * 100 : 0;
                         
-                        let voteButtonsHTML = '';
-                        if (displayStatus === 'active') {
-                            if (hasVoted) {
-                                voteButtonsHTML = `<div class="vote-message">You have already voted in this round.</div>`;
-                            } else {
-                                voteButtonsHTML = `
-                                    <div class="vote-actions">
-                                        <button class="vote-btn" data-vote="for">Vote For</button>
-                                        <button class="vote-btn" data-vote="against">Vote Against</button>
-                                    </div>
-                                    <div class="vote-message"></div>
-                                `;
-                            }
-                        }
+                        const voteButtonsHTML = displayStatus === 'active' && !hasVoted
+                            ? `<div class="vote-actions"><button class="vote-btn" data-vote="for">Vote For</button><button class="vote-btn" data-vote="against">Vote Against</button></div><div class="vote-message"></div>`
+                            : `<div class="vote-message">${hasVoted ? 'You have already voted in this round.' : ''}</div>`;
                         
-                        // *** THIS IS THE CRITICAL HTML LOGIC THAT WAS MISSING ***
                         proposalEl.innerHTML = `
                             <div class="proposal-header">
                                 <h5 class="proposal-title">${proposal.title}</h5>
@@ -1150,167 +1156,372 @@ function initDaoSection(auth, db, functions) {
             }
             
             for (const key in proposalCounts) {
-                if (proposalCounts[key] === 0 && proposalLists[key]) {
-                    proposalLists[key].innerHTML = `<li>No ${key} proposals found.</li>`;
+                if (proposalCounts[key] === 0 && generalProposalLists[key]) {
+                    generalProposalLists[key].innerHTML = `<li>No ${key} proposals found.</li>`;
                 }
             }
-
         } catch (error) {
-            console.error("Error rendering DAO page:", error);
-            if(createProposalBtn) {
-                 createProposalBtn.textContent = 'Error Loading';
-                 createProposalBtn.disabled = true;
-            }
+            console.error("Error rendering General DAO page:", error);
+            Object.values(generalProposalLists).forEach(list => list.innerHTML = `<li class="error-message">Could not load proposals.</li>`);
         }
     }
+    
+    /**
+     * Renders proposals for the TREASURY tab.
+     */
+    async function renderTreasuryProposals() {
+        if (Object.values(treasuryProposalLists).some(el => !el)) return;
 
-
-    proposalForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const title = proposalForm.querySelector('#general-proposal-title').value; // CORRECT
-        const description = proposalForm.querySelector('#general-proposal-description').value; // CORRECT
-        if (!title.trim() || !description.trim()) {
-            proposalFormMessage.textContent = 'Title and description are required.';
-            return;
-        }
-        const submitBtn = proposalForm.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
         try {
-            const createGeneralProposal = httpsCallable(functions, 'createGeneralProposal');
-            await createGeneralProposal({ title, description });
-            proposalFormMessage.textContent = 'Success! Refreshing...';
-            await renderDaoPage();
-            setTimeout(() => {
-                proposalForm.reset();
-                proposalFormContainer.classList.add('hidden');
-                createProposalBtn.style.display = 'block';
-                proposalFormMessage.textContent = '';
-                if(filterNav.querySelector('.filter-btn[data-status="active"]')) {
-                    filterNav.querySelector('.filter-btn[data-status="active"]').click();
-                }
-            }, 2000);
-        } catch (error) {
-            proposalFormMessage.textContent = `Error: ${error.message}`;
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit for 1st Round Vote';
-        }
-    });
+            // Eligibility for Treasury is checked on the backend during creation, button is permanently disabled for now.
+            // const eligibilityResult = await checkDaoEligibility();
+            // if(createTreasuryProposalBtn) createTreasuryProposalBtn.disabled = !eligibilityResult.data.eligible;
+            
+            Object.values(treasuryProposalLists).forEach(list => list.innerHTML = '<div class="spinner"></div>');
 
-    cancelProposalBtn.addEventListener('click', () => {
-        proposalForm.reset();
-        proposalFormMessage.textContent = '';
-        proposalFormContainer.classList.add('hidden');
-        createProposalBtn.style.display = 'block';
-    });
+            const proposalsSnapshot = await getDocs(query(collection(db, 'treasuryProposals'), orderBy('createdAt', 'desc')));
+            
+            let proposals = proposalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // --- UNIFIED AND SAFE UI CONTROL LOGIC ---
+            Object.values(treasuryProposalLists).forEach(list => list.innerHTML = '');
+            let proposalCounts = { active: 0, passed: 0, rejected: 0 };
 
-    // Main Tab Navigation
-    if(daoNavButtons.length > 0) {
-        daoNavButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const targetId = button.dataset.target;
-                document.querySelectorAll('.dao-content-page').forEach(page => page.classList.add('hidden'));
-                const targetPage = document.getElementById(targetId);
-                if (targetPage) targetPage.classList.remove('hidden');
+            if (proposals.length > 0) {
+                const currentUserUID = auth.currentUser ? auth.currentUser.uid : null;
+                proposals.forEach(proposal => {
+                    const status = proposal.status || 'unknown';
+                    const displayStatus = status.startsWith('active_') ? 'active' : status;
+                    const listContainer = treasuryProposalLists[displayStatus];
 
-                daoNavButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-            });
-        });
-    }
+                    if (listContainer) {
+                        const proposalEl = document.createElement('div');
+                        proposalEl.className = 'proposal-item';
+                        proposalEl.dataset.proposalId = proposal.id;
 
-    // Treasury Proposals Filter Logic
-    if (treasuryFilterNav) {
-        treasuryFilterNav.addEventListener('click', (e) => {
-            if (!e.target.matches('.filter-btn')) return;
+                        const voteCounts = proposal.voteCounts || {};
+                        let forCount = voteCounts.round1_for || voteCounts.round2_for || 0;
+                        let againstCount = voteCounts.round1_against || voteCounts.round2_against || 0;
+                        let totalVotes = forCount + againstCount;
+                        let hasVoted = false, roundText = '';
 
-            treasuryFilterNav.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
+                        if (status === 'active_round1') {
+                            hasVoted = currentUserUID && proposal.round1Votes && proposal.round1Votes[currentUserUID];
+                            roundText = 'Round 1: Top 100 (PHX Weighted)';
+                        } else if (status === 'active_round2') {
+                            forCount = voteCounts.round2_for || 0;
+                            againstCount = voteCounts.round2_against || 0;
+                            totalVotes = forCount + againstCount;
+                            hasVoted = currentUserUID && proposal.round2Votes && proposal.round2Votes[currentUserUID];
+                            roundText = 'Round 2: Final Vote (PHX Weighted)';
+                        }
+                        
+                        const forPercentage = totalVotes > 0 ? (forCount / totalVotes) * 100 : 0;
+                        const againstPercentage = totalVotes > 0 ? (againstCount / totalVotes) * 100 : 0;
+                        
+                        const voteButtonsHTML = displayStatus === 'active' && !hasVoted
+                            ? `<div class="vote-actions"><button class="vote-btn" data-vote="for">Vote For</button><button class="vote-btn" data-vote="against">Vote Against</button></div><div class="vote-message"></div>`
+                            : `<div class="vote-message">${hasVoted ? 'You have already voted in this round.' : ''}</div>`;
+                        
+                        proposalEl.innerHTML = `
+                            <div class="proposal-header">
+                                <h5 class="proposal-title">${proposal.title}</h5>
+                                <span class="proposal-status-badge status-${displayStatus}">${roundText || status.replace('_', ' ')}</span>
+                            </div>
+                            <p class="proposal-description">${proposal.description}</p>
+                            
+                            <!-- Treasury Specific Info -->
+                            <div class="proposal-details">
+                                <div><strong>Requested Amount:</strong> ${proposal.amount.toLocaleString()} XLM</div>
+                                <div><strong>Recipient:</strong> <a href="https://stellar.expert/explorer/public/account/${proposal.recipient}" target="_blank" rel="noopener noreferrer" class="mono-font">${proposal.recipient.substring(0,12)}...</a></div>
+                            </div>
+                            
+                            <div class="vote-summary">
+                                <div class="vote-bar">
+                                    <div class="vote-bar-for" style="width: ${forPercentage}%"></div>
+                                    <div class="vote-bar-against" style="width: ${againstPercentage}%"></div>
+                                </div>
+                                <div class="vote-counts">
+                                    <span>For: ${forCount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} PHX (${forPercentage.toFixed(1)}%)</span>
+                                    <span>Against: ${againstCount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} PHX (${againstPercentage.toFixed(1)}%)</span>
+                                </div>
+                            </div>
+                            ${voteButtonsHTML}
+                        `;
 
-            const status = e.target.dataset.status;
-            if (treasuryListsContainer) {
-                treasuryListsContainer.querySelectorAll('.proposals-list').forEach(list => {
-                    if (list.id.endsWith('-' + status)) {
-                        list.classList.remove('hidden');
-                    } else {
-                        list.classList.add('hidden');
+                        listContainer.appendChild(proposalEl);
+                        proposalCounts[displayStatus]++;
                     }
                 });
             }
-        });
+            
+            for (const key in proposalCounts) {
+                if (proposalCounts[key] === 0 && treasuryProposalLists[key]) {
+                    treasuryProposalLists[key].innerHTML = `<li>No ${key} proposals found.</li>`;
+                }
+            }
+        } catch (error) {
+            console.error("Error rendering Treasury DAO page:", error);
+            Object.values(treasuryProposalLists).forEach(list => list.innerHTML = `<li class="error-message">Could not load proposals.</li>`);
+        }
     }
+    
 
+    // --- Event Handlers & UI Logic ---
 
+    // Main DAO Tab Navigation
+    daoNavButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetId = button.dataset.target;
+            document.querySelectorAll('.dao-content-page').forEach(page => page.classList.add('hidden'));
+            document.getElementById(targetId)?.classList.remove('hidden');
 
-    if (filterNav) {
-        filterNav.addEventListener('click', (e) => {
+            daoNavButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+
+            // Call the correct render function based on which tab is now active
+            if (targetId === 'general-voting-content') {
+                renderGeneralProposals();
+                generalFilterNav.querySelector('.filter-btn[data-status="active"]')?.click();
+            } else if (targetId === 'treasury-voting-content') {
+                renderTreasuryProposals();
+                treasuryFilterNav.querySelector('.filter-btn[data-status="active"]')?.click();
+            }
+        });
+    });
+
+    // Filter Navigation (for both tabs)
+    [generalFilterNav, treasuryFilterNav].forEach(nav => {
+        if (!nav) return;
+        nav.addEventListener('click', (e) => {
             if (!e.target.matches('.filter-btn')) return;
-            filterNav.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            nav.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
+            
             const status = e.target.dataset.status;
-            Object.values(proposalLists).forEach(list => list.classList.add('hidden'));
-            if (proposalLists[status]) proposalLists[status].classList.remove('hidden');
+            const listContainer = nav.nextElementSibling; // Assumes lists are immediately after nav
+            listContainer.querySelectorAll('.proposals-list').forEach(list => {
+                list.id.endsWith('-' + status) ? list.classList.remove('hidden') : list.classList.add('hidden');
+            });
         });
-    }
+    });
 
-    Object.values(proposalLists).forEach(list => {
-        list.addEventListener('click', async (e) => {
-            if (!e.target.matches('.vote-btn')) return;
-            const button = e.target;
-            const proposalItem = button.closest('.proposal-item');
-            if (!proposalItem) return;
-            const proposalId = proposalItem.dataset.proposalId;
-            const vote = button.dataset.vote;
-            const actionsContainer = proposalItem.querySelector('.vote-actions');
-            const messageEl = proposalItem.querySelector('.vote-message');
-            if (actionsContainer) actionsContainer.style.display = 'none';
-            if (messageEl) {
-                messageEl.className = 'vote-message';
-                messageEl.textContent = 'Submitting vote...';
-            }
-            try {
-                if (!auth.currentUser) throw new Error("You must be logged in to vote.");
-                
-                // Read status from the badge's text content for accuracy
-                const statusBadge = proposalItem.querySelector('.proposal-status-badge');
-                let statusText = statusBadge.textContent.trim();
-                let status;
+    // Proposal Form Interactions (General)
+    createGeneralProposalBtn?.addEventListener('click', () => {
+        generalProposalFormContainer.classList.remove('hidden');
+        createGeneralProposalBtn.style.display = 'none';
+    });
+    cancelGeneralProposalBtn?.addEventListener('click', () => {
+        generalProposalForm.reset();
+        generalProposalFormMessage.textContent = '';
+        generalProposalFormContainer.classList.add('hidden');
+        createGeneralProposalBtn.style.display = 'block';
+    });
+    generalProposalForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = e.target.querySelector('#general-proposal-title').value;
+        const description = e.target.querySelector('#general-proposal-description').value;
+        const submitBtn = e.target.querySelector('button[type="submit"]');
 
-                if(statusText.includes('Round 1')){
-                    status = 'active_round1';
-                } else if (statusText.includes('Round 2')){
-                    status = 'active_round2';
-                } else {
-                    status = statusText.replace(' ', '_');
-                }
-                
-                const voteFunction = (status === 'active_round1') ? httpsCallable(functions, 'voteOnProposal') : (status === 'active_round2') ? httpsCallable(functions, 'voteOnProposalRound2') : null;
-                
-                if (!voteFunction) throw new Error("This proposal is not in an active voting phase.");
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        try {
+            await createGeneralProposal({ title, description });
+            generalProposalFormMessage.textContent = 'Success! Refreshing proposals...';
+            await renderGeneralProposals();
+            setTimeout(() => {
+                cancelGeneralProposalBtn.click();
+                generalFilterNav.querySelector('.filter-btn[data-status="active"]')?.click();
+            }, 2000);
+        } catch (error) {
+            generalProposalFormMessage.textContent = `Error: ${error.message}`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Proposal';
+        }
+    });
 
+    // Proposal Form Interactions (Treasury - currently disabled but logic is ready)
+    createTreasuryProposalBtn?.addEventListener('click', () => {
+        treasuryProposalFormContainer.classList.remove('hidden');
+        createTreasuryProposalBtn.style.display = 'none';
+    });
+    cancelTreasuryProposalBtn?.addEventListener('click', () => {
+        treasuryProposalForm.reset();
+        treasuryProposalFormMessage.textContent = '';
+        treasuryProposalFormContainer.classList.add('hidden');
+        createTreasuryProposalBtn.style.display = 'block'; // Or 'inline-block'
+    });
+    treasuryProposalForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = e.target.querySelector('#treasury-proposal-title').value;
+        const description = e.target.querySelector('#treasury-proposal-description').value;
+        const amount = parseFloat(e.target.querySelector('#treasury-proposal-amount').value);
+        const recipient = e.target.querySelector('#treasury-proposal-recipient').value;
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        try {
+            await createTreasuryProposal({ title, description, amount, recipient });
+            treasuryProposalFormMessage.textContent = 'Success! Refreshing proposals...';
+            await renderTreasuryProposals();
+            setTimeout(() => {
+                cancelTreasuryProposalBtn.click();
+                treasuryFilterNav.querySelector('.filter-btn[data-status="active"]')?.click();
+            }, 2000);
+        } catch (error) {
+            treasuryProposalFormMessage.textContent = `Error: ${error.message}`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Proposal';
+        }
+    });
+
+    // VOTE Event Delegation (for both tabs)
+    document.getElementById('dao-section').addEventListener('click', async (e) => {
+        if (!e.target.matches('.vote-btn')) return;
+        
+        const button = e.target;
+        const vote = button.dataset.vote;
+        const proposalItem = button.closest('.proposal-item');
+        const proposalId = proposalItem.dataset.proposalId;
+        const tabContent = button.closest('.dao-content-page');
+        const isGeneralTab = tabContent.id === 'general-voting-content';
+
+        const actionsContainer = proposalItem.querySelector('.vote-actions');
+        const messageEl = proposalItem.querySelector('.vote-message');
+
+        if(actionsContainer) actionsContainer.style.display = 'none';
+        if(messageEl) messageEl.textContent = 'Submitting vote...';
+
+        try {
+            if (!auth.currentUser) throw new Error("You must be logged in to vote.");
+            
+            const statusBadge = proposalItem.querySelector('.proposal-status-badge');
+            let status;
+            if(statusBadge.textContent.includes('Round 1')) status = 'active_round1';
+            else if (statusBadge.textContent.includes('Round 2')) status = 'active_round2';
+            else throw new Error("Proposal is not in an active voting phase.");
+
+            if (isGeneralTab) {
+                const voteFunction = status === 'active_round1' ? voteOnProposal : voteOnProposalRound2;
                 await voteFunction({ proposalId, vote });
-                await renderDaoPage();
-            } catch (error) {
-                console.error("Voting error:", error);
-                if (messageEl) {
-                    messageEl.textContent = error.message;
-                    messageEl.className = 'vote-message error';
-                }
-                // Re-show buttons only if there was an error and a container exists
-                if (actionsContainer) actionsContainer.style.display = 'flex';
+                await renderGeneralProposals();
+            } else { // Treasury Tab
+                const voteFunction = status === 'active_round1' ? voteOnTreasuryProposalRound1 : voteOnTreasuryProposalRound2;
+                await voteFunction({ proposalId, vote });
+                await renderTreasuryProposals();
             }
-        });
+            // The render function will automatically show the "You have voted" message.
+        } catch (error) {
+            console.error("Voting error:", error);
+            if (messageEl) {
+                messageEl.textContent = error.message;
+                messageEl.className = 'vote-message error';
+            }
+            if (actionsContainer) actionsContainer.style.display = 'flex'; // Show buttons again on error
+        }
     });
 
     // --- Initial State Setup ---
     if (daoNavButtons.length > 0) daoNavButtons[0].click();
-    if (filterNav && filterNav.querySelector('.filter-btn')) {
-        filterNav.querySelector('.filter-btn[data-status="active"]').click();
-    }
+}
 
-    renderDaoPage(); // Initial call to load proposals
+// ===================================================================
+// TREASURY PROPOSAL UI LOGIC
+// ===================================================================
 
+// --- DOM Element Selection for Treasury ---
+const createTreasuryProposalBtn = document.getElementById('create-treasury-proposal-btn');
+const treasuryProposalFormContainer = document.getElementById('treasury-proposal-form-container');
+const treasuryProposalForm = document.getElementById('treasury-proposal-form');
+const cancelTreasuryProposalBtn = document.getElementById('cancel-treasury-proposal-btn');
+const treasuryProposalFormMessage = document.getElementById('treasury-proposal-form-message');
+
+// --- Event Listener: Show Treasury Proposal Form ---
+if (createTreasuryProposalBtn) {
+    createTreasuryProposalBtn.addEventListener('click', async () => {
+        setButtonLoading(createTreasuryProposalBtn, true);
+        try {
+            // Use the same eligibility check as the general proposals
+            const checkDaoEligibility = firebase.functions().httpsCallable('checkDaoEligibility');
+            const result = await checkDaoEligibility();
+
+            if (result.data.eligible) {
+                // Eligible: show the form
+                treasuryProposalFormContainer.classList.remove('hidden');
+                createTreasuryProposalBtn.classList.add('hidden');
+            } else {
+                // Not eligible: show an alert
+                alert("Proposal creation is limited to top 100 supporters who have completed KYC and registered a wallet.");
+            }
+        } catch (error) {
+            console.error("Error checking DAO eligibility for treasury:", error);
+            alert(`An error occurred while checking your eligibility: ${error.message}`);
+        } finally {
+            setButtonLoading(createTreasuryProposalBtn, false);
+        }
+    });
+}
+
+// --- Event Listener: Cancel Treasury Proposal Form ---
+if (cancelTreasuryProposalBtn) {
+    cancelTreasuryProposalBtn.addEventListener('click', () => {
+        treasuryProposalFormContainer.classList.add('hidden');
+        createTreasuryProposalBtn.classList.remove('hidden');
+        treasuryProposalForm.reset();
+        treasuryProposalFormMessage.textContent = '';
+        treasuryProposalFormMessage.className = 'message';
+    });
+}
+
+// --- Event Listener: Submit Treasury Proposal Form ---
+if (treasuryProposalForm) {
+    treasuryProposalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = treasuryProposalForm.querySelector('button[type="submit"]');
+        const title = document.getElementById('treasury-proposal-title').value.trim();
+        const description = document.getElementById('treasury-proposal-description').value.trim();
+        const amount = parseFloat(document.getElementById('treasury-proposal-amount').value);
+        const recipient = document.getElementById('treasury-proposal-recipient').value.trim();
+
+        // Validation
+        if (!title || !description || isNaN(amount) || amount <= 0 || !recipient) {
+            showFormMessage(treasuryProposalFormMessage, 'Please fill out all fields correctly.', 'error');
+            return;
+        }
+        if (!recipient.match(/^G[A-Z0-9]{55}$/)) {
+            showFormMessage(treasuryProposalFormMessage, 'Invalid recipient Stellar wallet address format.', 'error');
+            return;
+        }
+
+        setButtonLoading(submitButton, true);
+        showFormMessage(treasuryProposalFormMessage, 'Submitting proposal...', 'info');
+
+        try {
+            const createTreasuryProposal = firebase.functions().httpsCallable('createTreasuryProposal');
+            const result = await createTreasuryProposal({ title, description, amount, recipient });
+
+            if (result.data.status === 'success') {
+                showFormMessage(treasuryProposalFormMessage, 'Proposal submitted successfully! Refreshing...', 'success');
+                setTimeout(() => {
+                    // Hide form, show create button, and reload proposals
+                    treasuryProposalFormContainer.classList.add('hidden');
+                    createTreasuryProposalBtn.classList.remove('hidden');
+                    treasuryProposalForm.reset();
+                    // Assumes a function to load treasury proposals exists for auto-refresh
+                    if (window.loadTreasuryProposals) {
+                        window.loadTreasuryProposals();
+                    }
+                }, 2000);
+            } else {
+                throw new Error(result.data.message || 'An unknown error occurred.');
+            }
+        } catch (error) {
+            console.error("Error creating treasury proposal:", error);
+            showFormMessage(treasuryProposalFormMessage, `Error: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(submitButton, false);
+        }
+    });
 }

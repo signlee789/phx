@@ -1136,3 +1136,34 @@ button[type="submit"] {
     color: #888888;
     cursor: not-allowed;
 }
+
+/* =========================================
+   Proposal Form Action Buttons
+   ========================================= */
+
+   .proposal-form-actions {
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+    gap: 0.75rem; /* Add space between the buttons */
+    width: 100%;
+    margin-top: 1.5rem; /* Add some space above the buttons */
+}
+
+/* Make both buttons inside this container full-width */
+.proposal-form-actions button {
+    width: 100%;
+    padding: 0.8rem;
+    font-size: 1rem;
+}
+
+/* Secondary button style (for Cancel) */
+.btn-secondary {
+    background-color: #4a4a58; /* A muted, dark grey that fits the theme */
+    color: #e0e0e0;
+    border: 1px solid #6c6c7e; /* A subtle border */
+}
+
+.btn-secondary:hover {
+    background-color: #5f5f70; /* A slightly lighter grey on hover */
+    border-color: #85859e;
+}

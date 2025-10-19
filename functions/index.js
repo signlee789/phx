@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
+const https = require('https');
 
 // Import individual logic files
 const { initialize, processSingleWithdrawal } = require("./withdrawalUtils");
@@ -748,14 +749,11 @@ exports.createGeneralProposal = functions.https.onCall(async (data, context) => 
 
 
 // Replace the existing updateLeaderboardCache function with this one.
-exports.updateLeaderboardCache = functions.pubsub.schedule('every 10 minutes').onRun(async (context) => {
+exports.updateLeaderboardCache = functions.runWith({ memory: '512MB', timeoutSeconds: 300 }).pubsub.schedule('every 10 minutes').onRun(async (context) => {
     functions.logger.log('Running scheduled job: updateLeaderboardCache');
     try {
         const snapshot = await db.collection('donations').get();
         
-        // This is the key fix:
-        // If the donations collection appears empty (e.g., due to a temporary glitch),
-        // we will NOT modify the existing leaderboard to prevent data loss.
         if (snapshot.empty) {
             functions.logger.warn('Donations collection appears empty. To prevent data loss, the leaderboard cache will not be modified.');
             return null;
@@ -769,21 +767,36 @@ exports.updateLeaderboardCache = functions.pubsub.schedule('every 10 minutes').o
         leaderboard.sort((a, b) => b.amount - a.amount);
         const top100Entries = leaderboard.slice(0, 100);
 
+        // --- NEW LOGIC: Calculate total on-chain PHX balance for the top 100 ---
+        let totalTop100PhxBalance = 0;
+        // Create an array of promises, each fetching the balance for one of the top 100 wallets
+        const balancePromises = top100Entries.map(entry => _getOnChainPhxBalance(entry.address));
+        // Wait for all balance checks to complete
+        const balances = await Promise.all(balancePromises);
+
+        // Sum up all the returned balances
+        for (const balance of balances) {
+            totalTop100PhxBalance += balance;
+        }
+        // --- END NEW LOGIC ---
+
         const cacheRef = db.collection('governance').doc('leaderboard');
         await cacheRef.set({
             top100_entries: top100Entries, 
+            // Save the newly calculated total voting power
+            total_top100_phx_balance: totalTop100PhxBalance,
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        functions.logger.log(`Successfully updated leaderboard cache with ${top100Entries.length} supporters.`);
+        functions.logger.log(`Successfully updated leaderboard. Total PHX power for top 100: ${totalTop100PhxBalance.toFixed(2)}`);
         return null;
 
     } catch (error) {
-        // If any other error occurs, we will also protect the existing cache by not touching it.
         functions.logger.error('CRITICAL: Failed to update leaderboard cache. The existing cache was NOT modified.', error);
         return null;
     }
 });
+
 
 
 /**
@@ -1028,4 +1041,292 @@ exports.checkDaoEligibility = functions.https.onCall(async (data, context) => {
     return { eligible }; 
 });
 
+const PHX_ISSUER_ADDRESS = 'GA7URRUCNFMZ6SQLOLHXB26AJ43JM72Q63NC35SB2STTDHNK6EPH73LW';
+const TOTAL_SUPPLY_URL = 'https://us-central1-phxlast-34481.cloudfunctions.net/totalSupply';
 
+/**
+ * Fetches the total distributed PHX supply from the given URL.
+ * @returns {Promise<number>} The total supply as a number.
+ */
+const _fetchTotalSupply = () => {
+    return new Promise((resolve, reject) => {
+        https.get(TOTAL_SUPPLY_URL, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                const supply = parseFloat(data);
+                if (isNaN(supply)) {
+                    reject(new functions.https.HttpsError('internal', 'Failed to parse total supply.'));
+                } else {
+                    resolve(supply);
+                }
+            });
+        }).on('error', (err) => {
+            functions.logger.error("Error fetching total supply:", err);
+            reject(new functions.https.HttpsError('internal', 'Could not fetch total supply for vote tallying.'));
+        });
+    });
+};
+
+
+/**
+ * Gets the on-chain PHX balance for a given Stellar wallet address.
+ * @param {string} stellarAddress The user's G... address.
+ * @returns {Promise<number>} The user's PHX balance.
+ */
+const _getOnChainPhxBalance = async (stellarAddress) => {
+    try {
+        const server = new StellarSdk.Horizon.Server('https://horizon.stellar.org');
+        const account = await server.loadAccount(stellarAddress);
+        const phxBalance = account.balances.find(b => 
+            b.asset_code === 'PHX' && b.asset_issuer === PHX_ISSUER_ADDRESS
+        );
+        return phxBalance ? parseFloat(phxBalance.balance) : 0;
+    } catch (error) {
+        // If account not found on chain, balance is 0. Log other errors.
+        if (error.response && error.response.status === 404) {
+            return 0;
+        }
+        functions.logger.error(`Failed to get on-chain balance for ${stellarAddress}:`, error);
+        // Return 0 to prevent vote failure, but log the issue.
+        return 0; 
+    }
+};
+
+exports.createTreasuryProposal = functions.https.onCall(async (data, context) => {
+    const uid = context.auth?.uid;
+    if (!uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be logged in.');
+    }
+
+    const { title, description, amount, recipient } = data;
+    if (!title || !description || !amount || !recipient ||
+        typeof title !== 'string' || typeof description !== 'string' ||
+        typeof amount !== 'number' || typeof recipient !== 'string' ||
+        !recipient.match(/^G[A-Z0-9]{55}$/)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Valid title, description, amount, and recipient address are required.');
+    }
+
+    try {
+        const { eligible, reason, userWallet, userData } = await _isUserEligibleForProposal(uid);
+        if (!eligible) {
+            throw new functions.https.HttpsError('failed-precondition', `You are not eligible to create a proposal. Reason: ${reason}`);
+        }
+
+        const proposalRef = db.collection('treasuryProposals').doc();
+        
+        // --- NEW LOGIC: Set expiration for 7 days from now ---
+        const now = admin.firestore.Timestamp.now();
+        const sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000;
+        const expiresAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + sevenDaysInMillis);
+        // --- END NEW LOGIC ---
+
+        await proposalRef.set({
+            title, description, amount, recipient,
+            proposerId: uid,
+            proposerAddress: userWallet,
+            proposerEmail: userData.email || '',
+            createdAt: now, // Use the 'now' timestamp
+            expiresAt: expiresAt, // Add the new expiration field
+            status: 'active_round1',
+            type: 'treasury',
+            round1Votes: {}, round2Votes: {},
+            voteCounts: { round1_for: 0, round1_against: 0, round2_for: 0, round2_against: 0 }
+        });
+        
+        return { status: 'success', message: 'Your treasury proposal has been submitted.', proposalId: proposalRef.id };
+
+    } catch (error) {
+        functions.logger.error('Error creating treasury proposal:', error);
+        throw error;
+    }
+});
+
+
+exports.voteOnTreasuryProposalRound1 = functions.https.onCall(async (data, context) => {
+    const uid = context.auth?.uid;
+    if (!uid) throw new functions.https.HttpsError('unauthenticated', 'You must be logged in.');
+
+    const { proposalId, vote } = data;
+    if (!proposalId || !['for', 'against'].includes(vote)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Valid proposal ID and vote required.');
+    }
+
+    const leaderboardDoc = await db.collection('governance').doc('leaderboard').get();
+    if (!leaderboardDoc.exists) throw new functions.https.HttpsError('internal', 'Governance data is unavailable.');
+    
+    // --- MODIFIED LOGIC: Get total power and wallets ---
+    const leaderboardData = leaderboardDoc.data();
+    const top100Wallets = (leaderboardData.top100_entries || []).map(e => e.address);
+    const totalTop100Phx = leaderboardData.total_top100_phx_balance || 0;
+    // --- END MODIFIED LOGIC ---
+
+    if (top100Wallets.length === 0 || totalTop100Phx === 0) {
+        throw new functions.https.HttpsError('failed-precondition', 'Round 1 voting power is not initialized. Please wait a few minutes.');
+    }
+
+    const proposalRef = db.collection('treasuryProposals').doc(proposalId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const [userDoc, proposalDoc] = await Promise.all([
+                transaction.get(db.collection('users').doc(uid)),
+                transaction.get(proposalRef)
+            ]);
+
+            if (!userDoc.exists || !proposalDoc.exists) throw new functions.https.HttpsError('not-found', 'User or proposal not found.');
+            
+            const userData = userDoc.data();
+            const proposalData = proposalDoc.data();
+            const userWallet = userData.walletAddress;
+
+            if (!userWallet || !top100Wallets.includes(userWallet)) throw new functions.https.HttpsError('failed-precondition', 'Not eligible for Round 1 vote.');
+            if (proposalData.status !== 'active_round1') throw new functions.https.HttpsError('failed-precondition', `This proposal is not in the active voting phase. Current status: ${proposalData.status}`);
+            if (proposalData.round1Votes && proposalData.round1Votes[uid]) throw new functions.https.HttpsError('already-exists', 'You have already voted.');
+
+            const votingPower = await _getOnChainPhxBalance(userWallet);
+
+            const newVoteCountFor = (proposalData.voteCounts.round1_for || 0) + (vote === 'for' ? votingPower : 0);
+            const newVoteCountAgainst = (proposalData.voteCounts.round1_against || 0) + (vote === 'against' ? votingPower : 0);
+
+            let updateData = {
+                [`round1Votes.${uid}`]: { vote, power: votingPower },
+                'voteCounts.round1_for': newVoteCountFor,
+                'voteCounts.round1_against': newVoteCountAgainst
+            };
+
+            // --- NEW LOGIC: Early Pass/Fail check ---
+            const passThreshold = totalTop100Phx / 2;
+
+            // Early PASS: 'For' votes exceed 50% of the total possible power.
+            if (newVoteCountFor > passThreshold) {
+                updateData.status = 'active_round2';
+            } 
+            // Early FAIL: 'Against' votes are 50% or more, making it impossible for 'For' to win.
+            else if (newVoteCountAgainst >= passThreshold) {
+                updateData.status = 'rejected';
+            }
+            // --- END NEW LOGIC ---
+
+            transaction.update(proposalRef, updateData);
+        });
+        return { status: 'success', message: 'Your vote has been recorded.' };
+    } catch (error) {
+        functions.logger.error(`Error in Treasury vote R1 for user ${uid} on proposal ${proposalId}:`, error);
+        throw error;
+    }
+});
+
+
+
+exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, context) => {
+    const uid = context.auth?.uid;
+    if (!uid) throw new functions.https.HttpsError('unauthenticated', 'You must be logged in.');
+
+    const { proposalId, vote } = data;
+    if (!proposalId || !['for', 'against'].includes(vote)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Valid proposal ID and vote required.');
+    }
+
+    const proposalRef = db.collection('treasuryProposals').doc(proposalId);
+    
+    try {
+        const distributedSupply = await _fetchTotalSupply();
+        const passThreshold = distributedSupply / 2;
+
+        await db.runTransaction(async (transaction) => {
+            const [userDoc, proposalDoc] = await Promise.all([
+                transaction.get(db.collection('users').doc(uid)),
+                transaction.get(proposalRef)
+            ]);
+
+            if (!userDoc.exists || !proposalDoc.exists) throw new functions.https.HttpsError('not-found', 'User or proposal not found.');
+            
+            const userData = userDoc.data();
+            const proposalData = proposalDoc.data();
+
+            if (userData.kycStatus !== 'verified' || !userData.walletAddress) {
+                throw new functions.https.HttpsError('failed-precondition', 'Must be KYC verified and have a wallet to vote.');
+            }
+            if (proposalData.status !== 'active_round2') {
+                throw new functions.https.HttpsError('failed-precondition', 'Proposal not in Round 2 voting phase.');
+            }
+            if (proposalData.round2Votes && proposalData.round2Votes[uid]) {
+                throw new functions.https.HttpsError('already-exists', 'You have already voted.');
+            }
+
+            const votingPower = await _getOnChainPhxBalance(userData.walletAddress);
+
+            const newVoteCountFor = (proposalData.voteCounts.round2_for || 0) + (vote === 'for' ? votingPower : 0);
+            const newVoteCountAgainst = (proposalData.voteCounts.round2_against || 0) + (vote === 'against' ? votingPower : 0);
+
+            let updateData = {
+                [`round2Votes.${uid}`]: { vote, power: votingPower },
+                'voteCounts.round2_for': newVoteCountFor,
+                'voteCounts.round2_against': newVoteCountAgainst
+            };
+
+            // Final Tally: Check if 'for' votes exceed 50% of total distributed supply.
+            if (newVoteCountFor > passThreshold) {
+                updateData.status = 'passed';
+            }
+            // Note: There's no automatic 'rejected' status here based on votes against,
+            // a proposal is only 'passed' if it meets the high threshold.
+            // It remains in 'active_round2' otherwise, until a manual close or timeout.
+
+            transaction.update(proposalRef, updateData);
+        });
+        return { status: 'success', message: 'Your final vote has been recorded.' };
+    } catch (error) {
+        functions.logger.error(`Error in Treasury vote R2 for user ${uid} on proposal ${proposalId}:`, error);
+        throw error;
+    }
+});
+
+/**
+ * Periodically checks for expired Round 1 Treasury proposals and closes them based on the final vote count.
+ * This function is scheduled to run every hour.
+ */
+exports.closeExpiredProposals = functions.pubsub.schedule('every 1 hours').onRun(async (context) => {
+    functions.logger.log('Running scheduled job: closeExpiredProposals');
+    const now = admin.firestore.Timestamp.now();
+    
+    // Find active Round 1 proposals that have expired
+    const expiredRound1ProposalsQuery = db.collection('treasuryProposals')
+        .where('status', '==', 'active_round1')
+        .where('expiresAt', '<=', now);
+        
+    try {
+        const snapshot = await expiredRound1ProposalsQuery.get();
+        if (snapshot.empty) {
+            functions.logger.log('No expired Round 1 proposals to close.');
+            return null;
+        }
+
+        const batch = db.batch();
+        snapshot.forEach(doc => {
+            const proposal = doc.data();
+            const votesFor = proposal.voteCounts.round1_for || 0;
+            const votesAgainst = proposal.voteCounts.round1_against || 0;
+
+            let newStatus;
+            // Final decision: if 'for' is strictly greater than 'against', it passes. Otherwise, it's rejected.
+            if (votesFor > votesAgainst) {
+                newStatus = 'active_round2';
+                functions.logger.log(`Closing proposal ${doc.id} as PASSED (Round 1). For: ${votesFor}, Against: ${votesAgainst}`);
+            } else {
+                newStatus = 'rejected';
+                functions.logger.log(`Closing proposal ${doc.id} as REJECTED (Round 1). For: ${votesFor}, Against: ${votesAgainst}`);
+            }
+            batch.update(doc.ref, { status: newStatus });
+        });
+
+        await batch.commit();
+        functions.logger.log(`Closed ${snapshot.size} expired proposals.`);
+        return null;
+
+    } catch (error) {
+        functions.logger.error('CRITICAL: Failed to close expired proposals.', error);
+        return null;
+    }
+});

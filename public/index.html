@@ -25,7 +25,7 @@
     <!-- <script src="https://sdk.pi.network/v2/pi-sdk.js"></script> -->
 
     <meta name="eaab8d5309d05c7590b273cdb2501f9be7a13a47" content="eaab8d5309d05c7590b273cdb2501f9be7a13a47" />
-    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <meta name="monetag" content="7f35cba65b0be22f37ced02afd94ee73">
 
 </head>
 <body>
@@ -285,39 +285,65 @@
         </div>
     </div>
     
-        <!-- Treasury Proposals Page -->
-        <div id="treasury-voting-content" class="dao-content-page hidden">
-            <div class="dao-header">
-                <h4>Treasury Proposals</h4>
-                <button id="create-treasury-proposal-btn" disabled>New Proposal</button>
-            </div>
-    
-            <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
-                <p>Proposals related to the distribution of the project's treasury funds. This may include funding for development, marketing, community events, or other initiatives.</p>
-                <p style="margin-top: 1rem;"><strong>Eligibility:</strong> Creating and voting on treasury proposals will be determined after the token is listed on an exchange and an on-chain voting mechanism is established.</p>
-            </div>
-    
-
-        <!-- Filter Navigation for Treasury Proposals -->
-        <nav class="proposals-filter-nav" id="treasury-filter-nav">
-            <button class="filter-btn active" data-status="active">Active</button>
-            <button class="filter-btn" data-status="passed">Passed</button>
-            <button class="filter-btn" data-status="rejected">Rejected</button>
-        </nav>
-
-        <!-- Container for Treasury Proposal Lists -->
-        <div id="treasury-proposals-list-container">
-            <div id="treasury-proposals-list-active" class="proposals-list">
-                <p>No active treasury proposals.</p>
-            </div>
-            <div id="treasury-proposals-list-passed" class="proposals-list hidden">
-                <p>No passed treasury proposals.</p>
-            </div>
-            <div id="treasury-proposals-list-rejected" class="proposals-list hidden">
-                <p>No rejected treasury proposals.</p>
-            </div>
-        </div>
-    </div>
+                <!-- Treasury Proposals Page -->
+                <div id="treasury-voting-content" class="dao-content-page hidden">
+                    <div class="dao-header">
+                        <h4>Treasury Proposals</h4>
+                        <button id="create-treasury-proposal-btn">New Proposal</button>
+                    </div>
+                    
+                    <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
+                        <p>Proposals for funding development, marketing, or other initiatives from the project's treasury. Voting power is based on your on-chain PHX balance.</p>
+                        <p style="margin-top: 1rem;"><strong>Proposal & Voting Process:</strong></p>
+                        <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
+                            <li><strong>Proposal Creation:</strong> Same as General proposals, limited to top 100 supporters.</li>
+                            <li><strong>Round 1 (Weighted Vote):</strong> The top 100 supporters vote, with power based on their on-chain PHX balance.</li>
+                            <li><strong>Round 2 (Final Vote):</strong> All KYC-verified users vote, with power based on their on-chain PHX balance. A proposal passes if 'For' votes exceed 50% of the total circulating PHX supply.</li>
+                        </ul>
+                    </div>
+                    
+        
+                    <!-- Treasury Proposal Creation Form (hidden by default) -->
+                    <div id="treasury-proposal-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
+                        <h5>New Treasury Proposal</h5>
+                        <form id="treasury-proposal-form">
+                            <input type="text" id="treasury-proposal-title" placeholder="Proposal Title" required maxlength="100">
+                            <textarea id="treasury-proposal-description" placeholder="Describe the purpose of the funding..." required maxlength="2000" rows="6"></textarea>
+                            <input type="number" id="treasury-proposal-amount" placeholder="Requested Amount (XLM)" required step="any">
+                            <input type="text" id="treasury-proposal-recipient" placeholder="Recipient Stellar Wallet Address (G...)" required>
+                            <div id="treasury-proposal-form-actions">
+                                <div class="proposal-form-actions">
+                                    <button type="submit">Submit Proposal</button>
+                                    <button type="button" id="cancel-treasury-proposal-btn" class="btn-secondary">Cancel</button>
+                                </div>
+                                
+                            </div>
+                            <p id="treasury-proposal-form-message" class="message"></p>
+                        </form>
+                    </div>
+            
+        
+                    <!-- Filter Navigation for Treasury Proposals -->
+                    <nav class="proposals-filter-nav" id="treasury-filter-nav">
+                        <button class="filter-btn active" data-status="active">Active</button>
+                        <button class="filter-btn" data-status="passed">Passed</button>
+                        <button class="filter-btn" data-status="rejected">Rejected</button>
+                    </nav>
+        
+                    <!-- Container for Treasury Proposal Lists -->
+                    <div id="treasury-proposals-list-container">
+                        <div id="treasury-proposals-list-active" class="proposals-list">
+                            <p>No active treasury proposals.</p>
+                        </div>
+                        <div id="treasury-proposals-list-passed" class="proposals-list hidden">
+                            <p>No passed treasury proposals.</p>
+                        </div>
+                        <div id="treasury-proposals-list-rejected" class="proposals-list hidden">
+                            <p>No rejected treasury proposals.</p>
+                        </div>
+                    </div>
+                </div>
+        
 </section>
                     
 

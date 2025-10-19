@@ -59,5 +59,11 @@ service cloud.firestore {
         allow write: if false;
       }
     }
+
+    // Rules for the 'treasuryProposals' collection
+    match /treasuryProposals/{proposalId} {
+      allow read: if true; // Allow public read access to all treasury proposals
+      allow write: if false;
+    }
   }
 }
