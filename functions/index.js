@@ -30,6 +30,9 @@ const ADMIN_UID = 'gu2dcY575mONgAkSFhlhidH550n2';
 const DEFAULT_REFERRAL_UID = 'CDK9P9ZRGJZlTVkVoRytJ9aq3Hw1';
 const MIN_WITHDRAWAL_AMOUNT = 37.07;
 const WITHDRAWAL_FEE = 0.1;
+const PROPOSAL_REWARD = 10.07;
+const VOTING_REWARD = 0.1007;
+
 
 
 // ===================================================================
@@ -879,6 +882,11 @@ exports.voteOnProposal = functions.https.onCall(async (data, context) => {
             const newVoteCountFor = (proposalData.voteCounts.round1_for || 0) + (vote === 'for' ? 1 : 0);
             const newVoteCountAgainst = (proposalData.voteCounts.round1_against || 0) + (vote === 'against' ? 1 : 0);
 
+            // --- 투표 보상 지급 ---
+            transaction.update(userRef, {
+                withdrawableBalance: admin.firestore.FieldValue.increment(VOTING_REWARD)
+            });
+
             let updateData = {
                 [`round1Votes.${uid}`]: vote,
                 'voteCounts.round1_for': newVoteCountFor,
@@ -912,6 +920,7 @@ exports.voteOnProposal = functions.https.onCall(async (data, context) => {
     }
 });
 
+
 /**
  * Records a vote for the second and final round of a proposal.
  * This version is enhanced for reliability by first querying the total number of
@@ -931,18 +940,15 @@ exports.voteOnProposalRound2 = functions.https.onCall(async (data, context) => {
     }
 
     // 3. Count Total Eligible Voters for Round 2
-    // This query is performed before the transaction to establish the voter pool size.
     let totalEligibleVoters = 0;
     try {
         const eligibleVotersSnapshot = await db.collection('users')
             .where('kycStatus', '==', 'verified')
             .get();
 
-        eligibleVotersSnapshot.forEach(doc => {
-            if (doc.data().walletAddress) {
-                totalEligibleVoters++;
-            }
-        });
+        // Count only users who also have a wallet address
+        totalEligibleVoters = eligibleVotersSnapshot.docs.filter(doc => doc.data().walletAddress).length;
+
     } catch (error) {
         functions.logger.error("Failed to count eligible voters for Round 2:", error);
         throw new functions.https.HttpsError('internal', 'Could not determine the number of eligible voters.');
@@ -988,6 +994,12 @@ exports.voteOnProposalRound2 = functions.https.onCall(async (data, context) => {
                 throw new functions.https.HttpsError('already-exists', 'You have already cast your vote in this final round.');
             }
 
+            // --- VOTING REWARD ---
+            // Grant reward for participating in the vote.
+            transaction.update(userRef, {
+                withdrawableBalance: admin.firestore.FieldValue.increment(VOTING_REWARD)
+            });
+
             // 6. Record the new vote
             const newVoteCountFor = (proposalData.voteCounts.round2_for || 0) + (vote === 'for' ? 1 : 0);
             const newVoteCountAgainst = (proposalData.voteCounts.round2_against || 0) + (vote === 'against' ? 1 : 0);
@@ -998,11 +1010,20 @@ exports.voteOnProposalRound2 = functions.https.onCall(async (data, context) => {
                 'voteCounts.round2_against': newVoteCountAgainst
             };
 
-            // 7. Tally results and determine the final outcome based on your rules.
+            // 7. Tally results and determine the final outcome.
             
             // PASS Condition: Votes 'for' must be MORE THAN 50% of total eligible voters.
             if (newVoteCountFor > totalEligibleVoters / 2) {
                 updateData.status = 'passed'; // Final Pass!
+
+                // --- PROPOSER REWARD ---
+                const proposerId = proposalData.proposerId;
+                if (proposerId) {
+                    const proposerRef = db.collection('users').doc(proposerId);
+                    transaction.update(proposerRef, {
+                        withdrawableBalance: admin.firestore.FieldValue.increment(PROPOSAL_REWARD)
+                    });
+                }
             }
             // FAIL Condition: Votes 'against' reach 50% or more (includes ties).
             else if (newVoteCountAgainst >= totalEligibleVoters / 2) {
@@ -1024,6 +1045,7 @@ exports.voteOnProposalRound2 = functions.https.onCall(async (data, context) => {
         }
     }
 });
+
 
 /**
  * [CLIENT-FACING] Checks if the calling user is eligible to create a DAO proposal.
@@ -1155,22 +1177,21 @@ exports.voteOnTreasuryProposalRound1 = functions.https.onCall(async (data, conte
     const leaderboardDoc = await db.collection('governance').doc('leaderboard').get();
     if (!leaderboardDoc.exists) throw new functions.https.HttpsError('internal', 'Governance data is unavailable.');
     
-    // --- MODIFIED LOGIC: Get total power and wallets ---
     const leaderboardData = leaderboardDoc.data();
     const top100Wallets = (leaderboardData.top100_entries || []).map(e => e.address);
     const totalTop100Phx = leaderboardData.total_top100_phx_balance || 0;
-    // --- END MODIFIED LOGIC ---
 
     if (top100Wallets.length === 0 || totalTop100Phx === 0) {
         throw new functions.https.HttpsError('failed-precondition', 'Round 1 voting power is not initialized. Please wait a few minutes.');
     }
 
+    const userRef = db.collection('users').doc(uid);
     const proposalRef = db.collection('treasuryProposals').doc(proposalId);
     
     try {
         await db.runTransaction(async (transaction) => {
             const [userDoc, proposalDoc] = await Promise.all([
-                transaction.get(db.collection('users').doc(uid)),
+                transaction.get(userRef),
                 transaction.get(proposalRef)
             ]);
 
@@ -1184,8 +1205,12 @@ exports.voteOnTreasuryProposalRound1 = functions.https.onCall(async (data, conte
             if (proposalData.status !== 'active_round1') throw new functions.https.HttpsError('failed-precondition', `This proposal is not in the active voting phase. Current status: ${proposalData.status}`);
             if (proposalData.round1Votes && proposalData.round1Votes[uid]) throw new functions.https.HttpsError('already-exists', 'You have already voted.');
 
-            const votingPower = await _getOnChainPhxBalance(userWallet);
+            // --- VOTING REWARD ---
+            transaction.update(userRef, {
+                withdrawableBalance: admin.firestore.FieldValue.increment(VOTING_REWARD)
+            });
 
+            const votingPower = await _getOnChainPhxBalance(userWallet);
             const newVoteCountFor = (proposalData.voteCounts.round1_for || 0) + (vote === 'for' ? votingPower : 0);
             const newVoteCountAgainst = (proposalData.voteCounts.round1_against || 0) + (vote === 'against' ? votingPower : 0);
 
@@ -1195,18 +1220,14 @@ exports.voteOnTreasuryProposalRound1 = functions.https.onCall(async (data, conte
                 'voteCounts.round1_against': newVoteCountAgainst
             };
 
-            // --- NEW LOGIC: Early Pass/Fail check ---
             const passThreshold = totalTop100Phx / 2;
 
-            // Early PASS: 'For' votes exceed 50% of the total possible power.
             if (newVoteCountFor > passThreshold) {
                 updateData.status = 'active_round2';
             } 
-            // Early FAIL: 'Against' votes are 50% or more, making it impossible for 'For' to win.
             else if (newVoteCountAgainst >= passThreshold) {
                 updateData.status = 'rejected';
             }
-            // --- END NEW LOGIC ---
 
             transaction.update(proposalRef, updateData);
         });
@@ -1218,7 +1239,6 @@ exports.voteOnTreasuryProposalRound1 = functions.https.onCall(async (data, conte
 });
 
 
-
 exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, context) => {
     const uid = context.auth?.uid;
     if (!uid) throw new functions.https.HttpsError('unauthenticated', 'You must be logged in.');
@@ -1228,6 +1248,7 @@ exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, conte
         throw new functions.https.HttpsError('invalid-argument', 'Valid proposal ID and vote required.');
     }
 
+    const userRef = db.collection('users').doc(uid);
     const proposalRef = db.collection('treasuryProposals').doc(proposalId);
     
     try {
@@ -1236,7 +1257,7 @@ exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, conte
 
         await db.runTransaction(async (transaction) => {
             const [userDoc, proposalDoc] = await Promise.all([
-                transaction.get(db.collection('users').doc(uid)),
+                transaction.get(userRef),
                 transaction.get(proposalRef)
             ]);
 
@@ -1255,8 +1276,12 @@ exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, conte
                 throw new functions.https.HttpsError('already-exists', 'You have already voted.');
             }
 
-            const votingPower = await _getOnChainPhxBalance(userData.walletAddress);
+            // --- VOTING REWARD ---
+            transaction.update(userRef, {
+                withdrawableBalance: admin.firestore.FieldValue.increment(VOTING_REWARD)
+            });
 
+            const votingPower = await _getOnChainPhxBalance(userData.walletAddress);
             const newVoteCountFor = (proposalData.voteCounts.round2_for || 0) + (vote === 'for' ? votingPower : 0);
             const newVoteCountAgainst = (proposalData.voteCounts.round2_against || 0) + (vote === 'against' ? votingPower : 0);
 
@@ -1269,11 +1294,17 @@ exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, conte
             // Final Tally: Check if 'for' votes exceed 50% of total distributed supply.
             if (newVoteCountFor > passThreshold) {
                 updateData.status = 'passed';
+                
+                // --- PROPOSER REWARD ---
+                const proposerId = proposalData.proposerId;
+                if (proposerId) {
+                    const proposerRef = db.collection('users').doc(proposerId);
+                    transaction.update(proposerRef, {
+                        withdrawableBalance: admin.firestore.FieldValue.increment(PROPOSAL_REWARD)
+                    });
+                }
             }
-            // Note: There's no automatic 'rejected' status here based on votes against,
-            // a proposal is only 'passed' if it meets the high threshold.
-            // It remains in 'active_round2' otherwise, until a manual close or timeout.
-
+            
             transaction.update(proposalRef, updateData);
         });
         return { status: 'success', message: 'Your final vote has been recorded.' };
@@ -1282,6 +1313,7 @@ exports.voteOnTreasuryProposalRound2 = functions.https.onCall(async (data, conte
         throw error;
     }
 });
+
 
 /**
  * Periodically checks for expired Round 1 Treasury proposals and closes them based on the final vote count.

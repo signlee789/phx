@@ -920,21 +920,10 @@ button[type="submit"] {
     margin-bottom: 0.5rem;
 }
 
-#create-proposal-btn {
-    background-color: #FFA500;
-    color: #1F1A24;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
 
-#create-proposal-btn:hover {
-    background-color: #FFC14D;
-}
+
+
+
 
 #proposal-form-container {
     background-color: #2a2438;
@@ -1118,8 +1107,10 @@ button[type="submit"] {
     background-color: #6b6b7b;
 }
 
-/* Style for the Treasury "New Proposal" button */
-#create-treasury-proposal-btn {
+/* DAO Header Buttons (Unified Style) */
+#create-proposal-btn,
+#create-treasury-proposal-btn,
+#create-community-post-btn {
     background-color: #FFA500;
     color: #1F1A24;
     border: none;
@@ -1127,15 +1118,24 @@ button[type="submit"] {
     border-radius: 5px;
     font-size: 0.9rem;
     font-weight: bold;
+    cursor: pointer;
     transition: background-color 0.2s;
 }
 
-/* Disabled state for the button */
-#create-treasury-proposal-btn:disabled {
+#create-proposal-btn:hover,
+#create-treasury-proposal-btn:hover,
+#create-community-post-btn:hover {
+    background-color: #FFC14D;
+}
+
+#create-proposal-btn:disabled,
+#create-treasury-proposal-btn:disabled,
+#create-community-post-btn:disabled {
     background-color: #5A5A5A;
     color: #888888;
     cursor: not-allowed;
 }
+
 
 /* =========================================
    Proposal Form Action Buttons
@@ -1166,4 +1166,56 @@ button[type="submit"] {
 .btn-secondary:hover {
     background-color: #5f5f70; /* A slightly lighter grey on hover */
     border-color: #85859e;
+}
+
+/* Community Posts Styling */
+.community-post-item {
+    background-color: #393046; 
+    padding: 1.5rem;
+    border-radius: 10px;
+    text-align: left;
+    margin-bottom: 1rem;
+}
+
+
+.community-post-item .post-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.community-post-item .post-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #FFFFFF;
+}
+
+.community-post-item .post-meta {
+    font-size: 0.85rem;
+    color: #b0a8bd;
+}
+
+.community-post-item .post-meta .post-author {
+    font-weight: bold;
+    color: #e0dced;
+}
+
+.community-post-item .post-content {
+    line-height: 1.6;
+    color: #D0D0D0;
+    margin: 1rem 0;
+    white-space: pre-wrap; /* This will respect newlines and spaces */
+}
+
+.community-post-item .post-footer {
+    margin-top: 1rem;
+    text-align: right;
+    font-size: 0.8rem;
+    color: #9a91a8;
+}
+
+#community-posts-list-container .spinner {
+    margin-top: 2rem;
 }

@@ -229,122 +229,210 @@
                 </section>
 
                 <!-- DAO Section -->
-<section id="dao-section" class="app-section hidden">
-    <div id="dao-navigation">
-        <button class="dao-nav-button active" data-target="general-voting-content">General</button>
-        <button class="dao-nav-button" data-target="treasury-voting-content">Treasury</button>
-    </div>                
-
-    <div id="general-voting-content" class="dao-content-page">
-        <!-- Page Header -->
-        <div class="dao-header">
-            <h4>General Proposals</h4>
-            <button id="create-proposal-btn">Create Proposal</button>
-        </div>
-        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
-            <p><strong>Proposal & Voting Process:</strong></p>
-            <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
-                <li><strong>Proposal Creation:</strong> Requires KYC verification, a registered Stellar wallet, AND being a top 100 supporter.</li>
-                <li><strong>1st Round Vote:</strong> Conducted exclusively by the top 100 supporters to filter proposals.</li>
-                <li><strong>2nd & Final Vote:</strong> Conducted by all users who have completed KYC and registered their Stellar wallet.</li>
-            </ul>
-        </div>
-    
-        <!-- Proposal Creation Form (hidden by default) -->
-        <div id="general-proposal-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
-            <h5>New Proposal</h5>
-            <form id="general-proposal-form">
-                <input type="text" id="general-proposal-title" placeholder="Proposal Title" required maxlength="100">
-                <textarea id="general-proposal-description" placeholder="Describe your proposal in detail..." required maxlength="2000" rows="6"></textarea>
-                <div id="general-proposal-form-actions">
-                    <button type="submit">Submit for 1st Round Vote</button>
-                    <button type="button" id="cancel-general-proposal-btn">Cancel</button>
-                </div>
-                <p id="general-proposal-form-message" class="message"></p>
-            </form>
-        </div>
-    
-        <!-- Filter Navigation for General Proposals -->
-        <nav class="proposals-filter-nav" id="general-filter-nav">
-            <button class="filter-btn active" data-status="active">Active</button>
-            <button class="filter-btn" data-status="passed">Passed</button>
-            <button class="filter-btn" data-status="rejected">Rejected</button>
-        </nav>
-    
-        <!-- Container for General Proposal Lists -->
-        <div id="general-proposals-list-container">
-            <div id="general-proposals-list-active" class="proposals-list">
-                <p>No active proposals right now.</p>
-            </div>
-            <div id="general-proposals-list-passed" class="proposals-list hidden">
-                <p>No proposals have passed yet.</p>
-            </div>
-            <div id="general-proposals-list-rejected" class="proposals-list hidden">
-                <p>No proposals have been rejected yet.</p>
-            </div>
-        </div>
-    </div>
-    
-                <!-- Treasury Proposals Page -->
-                <div id="treasury-voting-content" class="dao-content-page hidden">
-                    <div class="dao-header">
-                        <h4>Treasury Proposals</h4>
-                        <button id="create-treasury-proposal-btn">New Proposal</button>
-                    </div>
+                <section id="dao-section" class="app-section hidden">
+                    <div id="dao-navigation">
+                        <button class="dao-nav-button active" data-target="general-voting-content">General</button>
+                        <button class="dao-nav-button" data-target="treasury-voting-content">Treasury</button>
+                        <button class="dao-nav-button" data-target="community-content">Community</button>
+                        <button class="dao-nav-button" data-target="donation-content">Donation</button>
+                    </div>                
+                
+                    <div id="general-voting-content" class="dao-content-page">
+                        <!-- Page Header -->
+                        <div class="dao-header">
+                            <h4>General Proposals</h4>
+                            <button id="create-proposal-btn">Create Proposal</button>
+                        </div>
+                        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
+                            <p><strong>Proposal & Voting Process:</strong></p>
+                            <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
+                                <li><strong>Proposal Creation:</strong> Requires KYC verification, a registered Stellar wallet, AND being a top 100 supporter.</li>
+                                <li><strong>1st Round Vote:</strong> Conducted exclusively by the top 100 supporters to filter proposals.</li>
+                                <li><strong>2nd & Final Vote:</strong> Conducted by all users who have completed KYC and registered their Stellar wallet.</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- DAO Participation Rewards -->
+                        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left; border-top: 1px solid #333; padding-top: 1rem; margin-top: 1.5rem;">
+                            <p><strong>DAO Participation Rewards:</strong></p>
+                            <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
+                                <li><strong>Vote Participation:</strong> Earn <strong>0.1007 PHX</strong> for every vote cast on a proposal.</li>
+                                <li><strong>Successful Proposal:</strong> Earn <strong>10.07 PHX</strong> if your proposal is approved in the final round.</li>
+                            </ul>
+                            <p style="font-size: 0.9em; color: #aaa; margin-top: 0.5rem;">Rewards are automatically added to your withdrawable balance.</p>
+                        </div>
+                        
                     
-                    <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
-                        <p>Proposals for funding development, marketing, or other initiatives from the project's treasury. Voting power is based on your on-chain PHX balance.</p>
-                        <p style="margin-top: 1rem;"><strong>Proposal & Voting Process:</strong></p>
-                        <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
-                            <li><strong>Proposal Creation:</strong> Same as General proposals, limited to top 100 supporters.</li>
-                            <li><strong>Round 1 (Weighted Vote):</strong> The top 100 supporters vote, with power based on their on-chain PHX balance.</li>
-                            <li><strong>Round 2 (Final Vote):</strong> All KYC-verified users vote, with power based on their on-chain PHX balance. A proposal passes if 'For' votes exceed 50% of the total circulating PHX supply.</li>
-                        </ul>
-                    </div>
-                    
-        
-                    <!-- Treasury Proposal Creation Form (hidden by default) -->
-                    <div id="treasury-proposal-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
-                        <h5>New Treasury Proposal</h5>
-                        <form id="treasury-proposal-form">
-                            <input type="text" id="treasury-proposal-title" placeholder="Proposal Title" required maxlength="100">
-                            <textarea id="treasury-proposal-description" placeholder="Describe the purpose of the funding..." required maxlength="2000" rows="6"></textarea>
-                            <input type="number" id="treasury-proposal-amount" placeholder="Requested Amount (XLM)" required step="any">
-                            <input type="text" id="treasury-proposal-recipient" placeholder="Recipient Stellar Wallet Address (G...)" required>
-                            <div id="treasury-proposal-form-actions">
-                                <div class="proposal-form-actions">
-                                    <button type="submit">Submit Proposal</button>
-                                    <button type="button" id="cancel-treasury-proposal-btn" class="btn-secondary">Cancel</button>
+                        <!-- Proposal Creation Form (hidden by default) -->
+                        <div id="general-proposal-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
+                            <h5>New Proposal</h5>
+                            <form id="general-proposal-form">
+                                <input type="text" id="general-proposal-title" placeholder="Proposal Title" required maxlength="100">
+                                <textarea id="general-proposal-description" placeholder="Describe your proposal in detail..." required maxlength="2000" rows="6"></textarea>
+                                <div id="general-proposal-form-actions">
+                                    <button type="submit">Submit for 1st Round Vote</button>
+                                    <button type="button" id="cancel-general-proposal-btn">Cancel</button>
                                 </div>
-                                
+                                <p id="general-proposal-form-message" class="message"></p>
+                            </form>
+                        </div>
+                    
+                        <!-- Filter Navigation for General Proposals -->
+                        <nav class="proposals-filter-nav" id="general-filter-nav">
+                            <button class="filter-btn active" data-status="active">Active</button>
+                            <button class="filter-btn" data-status="passed">Passed</button>
+                            <button class="filter-btn" data-status="rejected">Rejected</button>
+                        </nav>
+                    
+                        <!-- Container for General Proposal Lists -->
+                        <div id="general-proposals-list-container">
+                            <div id="general-proposals-list-active" class="proposals-list">
+                                <p>No active proposals right now.</p>
                             </div>
-                            <p id="treasury-proposal-form-message" class="message"></p>
-                        </form>
-                    </div>
-            
-        
-                    <!-- Filter Navigation for Treasury Proposals -->
-                    <nav class="proposals-filter-nav" id="treasury-filter-nav">
-                        <button class="filter-btn active" data-status="active">Active</button>
-                        <button class="filter-btn" data-status="passed">Passed</button>
-                        <button class="filter-btn" data-status="rejected">Rejected</button>
-                    </nav>
-        
-                    <!-- Container for Treasury Proposal Lists -->
-                    <div id="treasury-proposals-list-container">
-                        <div id="treasury-proposals-list-active" class="proposals-list">
-                            <p>No active treasury proposals.</p>
-                        </div>
-                        <div id="treasury-proposals-list-passed" class="proposals-list hidden">
-                            <p>No passed treasury proposals.</p>
-                        </div>
-                        <div id="treasury-proposals-list-rejected" class="proposals-list hidden">
-                            <p>No rejected treasury proposals.</p>
+                            <div id="general-proposals-list-passed" class="proposals-list hidden">
+                                <p>No proposals have passed yet.</p>
+                            </div>
+                            <div id="general-proposals-list-rejected" class="proposals-list hidden">
+                                <p>No proposals have been rejected yet.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-        
-</section>
+                    
+                    <!-- Treasury Proposals Page -->
+                    <div id="treasury-voting-content" class="dao-content-page hidden">
+                        <div class="dao-header">
+                            <h4>Treasury Proposals</h4>
+                            <button id="create-treasury-proposal-btn">New Proposal</button>
+                        </div>
+                        
+                        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
+                            <p>Proposals for funding development, marketing, or other initiatives from the project's treasury. Voting power is based on your on-chain PHX balance.</p>
+                            <p style="margin-top: 1rem;"><strong>Proposal & Voting Process:</strong></p>
+                            <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
+                                <li><strong>Proposal Creation:</strong> Same as General proposals, limited to top 100 supporters.</li>
+                                <li><strong>Round 1 (Weighted Vote):</strong> The top 100 supporters vote, with power based on their on-chain PHX balance.</li>
+                                <li><strong>Round 2 (Final Vote):</strong> All KYC-verified users vote, with power based on their on-chain PHX balance. A proposal passes if 'For' votes exceed 50% of the total circulating PHX supply.</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- DAO Participation Rewards -->
+                        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left; border-top: 1px solid #333; padding-top: 1rem; margin-top: 1.5rem;">
+                            <p><strong>DAO Participation Rewards:</strong></p>
+                            <ul style="list-style-position: inside; padding-left: 1rem; margin-top: 0.5rem;">
+                                <li><strong>Vote Participation:</strong> Earn <strong>0.1007 PHX</strong> for every vote cast on a proposal.</li>
+                                <li><strong>Successful Proposal:</strong> Earn <strong>10.07 PHX</strong> if your proposal is approved in the final round.</li>
+                            </ul>
+                            <p style="font-size: 0.9em; color: #aaa; margin-top: 0.5rem;">Rewards are automatically added to your withdrawable balance.</p>
+                        </div>
+                        
+                        
+                        <!-- Treasury Proposal Creation Form (hidden by default) -->
+                        <div id="treasury-proposal-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
+                            <h5>New Treasury Proposal</h5>
+                            <form id="treasury-proposal-form">
+                                <input type="text" id="treasury-proposal-title" placeholder="Proposal Title" required maxlength="100">
+                                <textarea id="treasury-proposal-description" placeholder="Describe the purpose of the funding..." required maxlength="2000" rows="6"></textarea>
+                                <input type="number" id="treasury-proposal-amount" placeholder="Requested Amount (XLM)" required step="any">
+                                <input type="text" id="treasury-proposal-recipient" placeholder="Recipient Stellar Wallet Address (G...)" required>
+                                <div id="treasury-proposal-form-actions">
+                                    <div class="proposal-form-actions">
+                                        <button type="submit">Submit Proposal</button>
+                                        <button type="button" id="cancel-treasury-proposal-btn" class="btn-secondary">Cancel</button>
+                                    </div>
+                                </div>
+                                <p id="treasury-proposal-form-message" class="message"></p>
+                            </form>
+                        </div>
+                
+                        <!-- Filter Navigation for Treasury Proposals -->
+                        <nav class="proposals-filter-nav" id="treasury-filter-nav">
+                            <button class="filter-btn active" data-status="active">Active</button>
+                            <button class="filter-btn" data-status="passed">Passed</button>
+                            <button class="filter-btn" data-status="rejected">Rejected</button>
+                        </nav>
+                
+                        <!-- Container for Treasury Proposal Lists -->
+                        <div id="treasury-proposals-list-container">
+                            <div id="treasury-proposals-list-active" class="proposals-list">
+                                <p>No active treasury proposals.</p>
+                            </div>
+                            <div id="treasury-proposals-list-passed" class="proposals-list hidden">
+                                <p>No passed treasury proposals.</p>
+                            </div>
+                            <div id="treasury-proposals-list-rejected" class="proposals-list hidden">
+                                <p>No rejected treasury proposals.</p>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <!-- Community Board Page -->
+                    <div id="community-content" class="dao-content-page hidden">
+                        <div class="dao-header">
+                            <h4>Community</h4>
+                            <button id="create-community-post-btn">Create Post</button>
+                        </div>
+                        <div class="info-text" style="margin-bottom: 1.5rem; text-align: left;">
+                            <p>A place for free discussion. Share your thoughts, ask questions, and connect with other members. Posts require KYC verification.</p>
+                        </div>
+                
+                        <!-- Post Creation Form -->
+                        <div id="community-post-form-container" class="settings-card hidden" style="margin-bottom: 1.5rem; text-align: left;">
+                            <h5>New Post</h5>
+                            <form id="community-post-form">
+                                <input type="text" id="community-post-title" placeholder="Post Title" required maxlength="100">
+                                <textarea id="community-post-content" placeholder="What's on your mind?" required maxlength="5000" rows="8"></textarea>
+                                <div class="proposal-form-actions">
+                                    <button type="submit">Post</button>
+                                    <button type="button" id="cancel-community-post-btn" class="btn-secondary">Cancel</button>
+                                </div>
+                                <p id="community-post-form-message" class="message"></p>
+                            </form>
+                        </div>
+                
+                        <!-- Posts List -->
+                        <div id="community-posts-list-container" class="proposals-list">
+                            <p>No posts yet. Be the first to start a conversation!</p>
+                        </div>
+                    </div>
+                    
+                    <div id="donation-content" class="dao-content-page hidden">
+                        <h4>Support PHX & Join the DAO</h4>
+                        <p class="info-text" style="text-align: left;">
+                            This address is the official treasury wallet, holding the 21 million public supply of PHX. All contributed XLM will be used to provide liquidity for the PHX token on a Decentralized Exchange (DEX) and to cover network withdrawal fees. Your support directly builds the foundation for PHX's market value and utility.
+                        </p>                        
+                    
+                        <div class="settings-card">
+                            <h5>How to Participate: Proof of Contribution</h5>
+                            <p style="text-align: left;">
+                                Send XLM from the Stellar wallet you've saved in the PHX app settings to the address below. Your contribution will be automatically recorded and displayed on the leaderboard.
+                            </p>
+                            <div class="code-box">
+                                <span id="xlm-donation-address">GBX4GLP7JCG4TPMWYXIDECIO3ZLRGSYZ6JN4XHRLNM53ZFJM34U7HDDT</span>
+                                <button type="button" id="copy-xlm-donation-button">Copy Address</button>
+                            </div>
+                            <p id="copy-xlm-status-message" class="message"></p>
+                        </div>
+                    
+                        <div class="settings-card">
+                            <h5>Supporter Benefits</h5>
+                            <ul class="benefit-list">
+                                <li><strong>🏅 Hall of Fame:</strong> We honor your early support by permanently recording your contribution on the leaderboard.</li>
+                                <li><strong>⚖️ Governance Multiplier:</strong> As an early supporter, your voting power in the future DAO will receive a multiplier, giving your voice more weight in key decisions.</li>
+                                <li><strong>🧑‍⚖️ Eligibility for DAO Roles:</strong> Top contributors will be considered trusted candidates for special roles within the DAO, such as council members, acknowledging their commitment to the project.</li>
+                            </ul>
+                        </div>
+                    
+                        <div class="settings-card">
+                            <h5>Supporter Leaderboard</h5>
+                            <ul id="donation-leaderboard" class="leaderboard-list">
+                                <!-- Leaderboard data will be loaded here -->
+                                <div class="spinner"></div>
+                            </ul>
+                        </div>
+                    </div>                    
+
+                </section>
+                
                     
 
 
@@ -365,10 +453,6 @@
                             <p>Learn more about the project and how to contact us.</p>
                         </div>
 
-                        <div class="settings-card info-nav-card" data-target="donation-content">
-                            <h4>Donation</h4>
-                            <p>Support the project.</p>
-                        </div>
                         
                         <!--
                         <div class="settings-card info-nav-card" data-target="ai-assistant-content">
@@ -466,45 +550,6 @@
                         <p><strong>Email:</strong> <a href="mailto:phoenixXcurrency@gmail.com">phoenixXcurrency@gmail.com</a></p>
                         <p><strong>X (Twitter):</strong> <a href="https://x.com/phoenixXCteam" target="_blank">@phoenixXCteam</a></p>
                     </div>
-
-                    <div id="donation-content" class="info-content-page hidden">
-                        <button class="back-to-info-btn text-button">← Back</button>
-                        <h4>Support PHX & Join the DAO</h4>
-                        <p class="info-text" style="text-align: left;">
-                            This address is the official treasury wallet, holding the 21 million public supply of PHX. All contributed XLM will be used to provide liquidity for the PHX token on a Decentralized Exchange (DEX) and to cover network withdrawal fees. Your support directly builds the foundation for PHX's market value and utility.
-                        </p>                        
-                    
-                        <div class="settings-card">
-                            <h5>How to Participate: Proof of Contribution</h5>
-                            <p style="text-align: left;">
-                                Send XLM from the Stellar wallet you've saved in the PHX app settings to the address below. Your contribution will be automatically recorded and displayed on the leaderboard.
-                            </p>
-                            <div class="code-box">
-                                <span id="xlm-donation-address">GBX4GLP7JCG4TPMWYXIDECIO3ZLRGSYZ6JN4XHRLNM53ZFJM34U7HDDT</span>
-                                <button type="button" id="copy-xlm-donation-button">Copy Address</button>
-                            </div>
-                            <p id="copy-xlm-status-message" class="message"></p>
-                        </div>
-                    
-                        <div class="settings-card">
-                            <h5>Supporter Benefits</h5>
-                            <ul class="benefit-list">
-                                <li><strong>🏅 Hall of Fame:</strong> We honor your early support by permanently recording your contribution on the leaderboard.</li>
-                                <li><strong>⚖️ Governance Multiplier:</strong> As an early supporter, your voting power in the future DAO will receive a multiplier, giving your voice more weight in key decisions.</li>
-                                <li><strong>🧑‍⚖️ Eligibility for DAO Roles:</strong> Top contributors will be considered trusted candidates for special roles within the DAO, such as council members, acknowledging their commitment to the project.</li>
-                            </ul>
-                        </div>
-                    
-                        <div class="settings-card">
-                            <h5>Supporter Leaderboard</h5>
-                            <ul id="donation-leaderboard" class="leaderboard-list">
-                                <!-- Leaderboard data will be loaded here -->
-                                <div class="spinner"></div>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    
                     
 
                     <!--
@@ -524,11 +569,14 @@
             </div>
 
                 <!-- Ad Card -->
+        <!--
+
 <div id="frame" style="width: 100%; margin: 1.5rem auto 0; position: relative; z-index: 99998;">
     <iframe data-aa='2413254' src='//acceptable.a-ads.com/2413254/?size=728x90&background_color=1F1A24&title_color=FFA500&text_color=F0F0F0&link_color=FFC14D'
     style='border:0; padding:0; width:728px; height:90px; max-width: 100%; overflow:hidden; display: block; margin: auto;'></iframe>
 </div>
 
+        -->
 
 
         </main>

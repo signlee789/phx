@@ -65,5 +65,33 @@ service cloud.firestore {
       allow read: if true; // Allow public read access to all treasury proposals
       allow write: if false;
     }
+
+        // Rules for the 'communityPosts' collection
+    match /communityPosts/{postId} {
+      // Allow any authenticated (logged-in) user to read posts.
+      allow read: if request.auth != null;
+
+      // Allow users to create posts ONLY if their KYC is verified.
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.kycStatus == 'verified';
+
+      // Disallow updating or deleting posts from the client-side for security.
+      allow update, delete: if false;
+
+            // Rules for the 'comments' subcollection
+      match /comments/{commentId} {
+        // Allow any authenticated user to read comments.
+        allow read: if request.auth != null;
+        
+        // Allow users to create comments if they are KYC verified and have a wallet.
+        allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.kycStatus == 'verified';
+
+        // Disallow updating or deleting comments from the client-side.
+        allow update, delete: if false;
+      }
+
+    }
+
+
+
   }
 }

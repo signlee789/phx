@@ -1,7 +1,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, orderBy, getDocs, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot, updateDoc, collection, query, where, orderBy, getDocs, getDoc, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 import { firebaseConfig } from './firebase-config.js';
@@ -198,7 +198,265 @@ if (isNative) {
     copyXlmStatusMessage: document.getElementById('copy-xlm-status-message'),
     donationLeaderboard: document.getElementById('donation-leaderboard'),
 
+    communityContent: document.getElementById('community-content'),
+createCommunityPostBtn: document.getElementById('create-community-post-btn'),
+communityPostFormContainer: document.getElementById('community-post-form-container'),
+communityPostForm: document.getElementById('community-post-form'),
+communityPostTitle: document.getElementById('community-post-title'),
+communityPostContent: document.getElementById('community-post-content'),
+cancelCommunityPostBtn: document.getElementById('cancel-community-post-btn'),
+communityPostFormMessage: document.getElementById('community-post-form-message'),
+communityPostsListContainer: document.getElementById('community-posts-list-container'),
+
         };
+
+// --------------------------------------------------------------------------------
+// Community Board Feature (Final Corrected Version)
+// --------------------------------------------------------------------------------
+
+let communityPostsUnsubscribe = null;
+
+// Helper function to escape HTML to prevent XSS attacks
+const escapeHTML = (str) => {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, (match) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[match]));
+};
+
+// --- Event Listeners for Community Board ---
+
+// Event listener for showing the post creation form
+if (dom.createCommunityPostBtn) {
+    dom.createCommunityPostBtn.addEventListener('click', () => {
+        // Check eligibility using the global 'userData' object
+        if (userData && userData.kycStatus === 'verified' && userData.walletAddress) {
+            dom.communityPostFormContainer.classList.remove('hidden');
+            dom.createCommunityPostBtn.classList.add('hidden');
+        } else {
+            // Use 'alert' as no general-purpose toast/modal function exists in this project
+            alert("Post creation requires KYC verification and a saved Stellar wallet in Settings.");
+        }
+    });
+}
+
+// Event listener for canceling post creation
+if (dom.cancelCommunityPostBtn) {
+    dom.cancelCommunityPostBtn.addEventListener('click', () => {
+        dom.communityPostFormContainer.classList.add('hidden');
+        dom.createCommunityPostBtn.classList.remove('hidden');
+        dom.communityPostForm.reset();
+        if(dom.communityPostFormMessage) dom.communityPostFormMessage.textContent = '';
+    });
+}
+
+// Event listener for submitting a new post
+if (dom.communityPostForm) {
+    dom.communityPostForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = dom.communityPostTitle.value.trim();
+        const content = dom.communityPostContent.value.trim();
+        const messageEl = dom.communityPostFormMessage;
+
+        // Manually handle form messages, following the project's existing style
+        if (!title || !content) {
+            messageEl.textContent = "Title and content are required.";
+            messageEl.className = 'message error-message';
+            return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) {
+            messageEl.textContent = "You must be logged in to post.";
+            messageEl.className = 'message error-message';
+            return;
+        }
+
+        const postButton = dom.communityPostForm.querySelector('button[type="submit"]');
+        // Manually handle button loading state, following the project's existing style
+        postButton.disabled = true;
+        postButton.textContent = 'Submitting...';
+        messageEl.textContent = ''; // Clear previous errors
+
+        try {
+            // Use the correct modular Firebase functions (imported at the top)
+            await addDoc(collection(db, "communityPosts"), {
+                title: title,
+                content: content,
+                authorUid: user.uid,
+                authorAddress: userData.walletAddress,
+                createdAt: serverTimestamp()
+            });
+
+            dom.communityPostFormContainer.classList.add('hidden');
+            dom.createCommunityPostBtn.classList.remove('hidden');
+            dom.communityPostForm.reset();
+            alert("Your post has been published!"); // Use alert for success
+
+        } catch (error) {
+            console.error("Error creating community post: ", error);
+            messageEl.textContent = "An error occurred. Please try again.";
+            messageEl.className = 'message error-message';
+        } finally {
+            // Manually restore button state
+            postButton.disabled = false;
+            postButton.textContent = 'Submit Post';
+        }
+    });
+
+    // Use event delegation for comment forms
+if (dom.communityPostsListContainer) {
+    dom.communityPostsListContainer.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Ensure the event is from a comment form
+        if (!e.target.matches('.comment-form')) {
+            return;
+        }
+
+        const form = e.target;
+        const input = form.querySelector('.comment-input');
+        const button = form.querySelector('button');
+        const commentText = input.value.trim();
+
+        if (!commentText) return;
+
+        const postItem = form.closest('.community-post-item');
+        const postId = postItem.dataset.id;
+        
+        const user = auth.currentUser;
+        if (!user || !userData.walletAddress) {
+            alert("You must be logged in and have a saved wallet to comment.");
+            return;
+        }
+
+        button.disabled = true;
+
+        try {
+            await addDoc(collection(db, 'communityPosts', postId, 'comments'), {
+                text: commentText,
+                authorUid: user.uid,
+                authorAddress: userData.walletAddress,
+                createdAt: serverTimestamp()
+            });
+            form.reset(); // Clear the input field on success
+        } catch (error) {
+            console.error("Error adding comment: ", error);
+            alert("Failed to post comment. Please try again.");
+        } finally {
+            button.disabled = false;
+        }
+    });
+}
+
+}
+
+/**
+ * Fetches and renders community posts from Firestore in real-time.
+ * This function is correctly called when the user logs in.
+ */
+function listenForCommunityPosts() {
+    if (!dom.communityPostsListContainer) return;
+
+    if (communityPostsUnsubscribe) {
+        communityPostsUnsubscribe(); // Detach previous listener
+    }
+
+    // Show a loading spinner, following the project's existing style
+    dom.communityPostsListContainer.innerHTML = '<div class="spinner"></div>';
+
+    // Use the correct modular Firebase functions
+    const postsCollection = collection(db, "communityPosts");
+    const q = query(postsCollection, orderBy("createdAt", "desc"));
+
+    communityPostsUnsubscribe = onSnapshot(q, (querySnapshot) => {
+        dom.communityPostsListContainer.innerHTML = ''; // Clear spinner/old content
+
+        if (querySnapshot.empty) {
+            dom.communityPostsListContainer.innerHTML = '<p>No posts yet. Be the first to start a conversation!</p>';
+            return;
+        }
+
+        querySnapshot.forEach((doc) => {
+            const post = doc.data();
+            const postItem = document.createElement('div');
+            postItem.className = 'community-post-item';
+            postItem.dataset.id = doc.id;
+
+            const creationDate = post.createdAt ? post.createdAt.toDate().toLocaleString() : 'Just now';
+
+            const author = post.authorAddress 
+            ? `${post.authorAddress.substring(0, 6)}...${post.authorAddress.substring(post.authorAddress.length - 6)}`
+            : 'Anonymous';
+
+        postItem.innerHTML = `
+            <div class="post-header">
+                <h5 class="post-title">${escapeHTML(post.title)}</h5>
+                <div class="post-meta">
+                    by <span class="post-author">${escapeHTML(author)}</span>
+                </div>
+            </div>
+            <p class="post-content">${escapeHTML(post.content)}</p>
+            <div class="post-footer">
+                <span>${creationDate}</span>
+            </div>
+            
+            <!-- Comments Section START -->
+            <div class="comments-container">
+                <div class="comments-list">
+                    <!-- Comments will be loaded here by JavaScript -->
+                </div>
+                <form class="comment-form">
+                    <input type="text" class="comment-input" placeholder="Add a comment..." required>
+                    <button type="submit">Post</button>
+                </form>
+            </div>
+            <!-- Comments Section END -->
+        `;
+
+
+            dom.communityPostsListContainer.appendChild(postItem);
+            loadAndRenderComments(doc.id, postItem.querySelector('.comments-list'));
+
+        });
+
+    }, (error) => {
+        console.error("Error fetching community posts: ", error);
+        // Display error inside the container, following the project's existing style
+        dom.communityPostsListContainer.innerHTML = '<p class="error-message">Could not load posts. Please check your connection or try again later.</p>';
+    });
+}
+
+function loadAndRenderComments(postId, containerElement) {
+    const commentsCollection = collection(db, 'communityPosts', postId, 'comments');
+    const q = query(commentsCollection, orderBy("createdAt", "asc"));
+
+    onSnapshot(q, (querySnapshot) => {
+        containerElement.innerHTML = ''; // Clear old comments
+        querySnapshot.forEach((doc) => {
+            const comment = doc.data();
+            const commentItem = document.createElement('div');
+            commentItem.className = 'comment-item';
+
+            const commentAuthor = comment.authorAddress
+                ? `${comment.authorAddress.substring(0, 6)}...${comment.authorAddress.substring(comment.authorAddress.length - 6)}`
+                : 'Anonymous';
+            
+            const creationDate = comment.createdAt ? comment.createdAt.toDate().toLocaleTimeString() : '';
+
+            commentItem.innerHTML = `
+                <span class="comment-author">${escapeHTML(commentAuthor)}:</span>
+                <span class="comment-text">${escapeHTML(comment.text)}</span>
+            `;
+            containerElement.appendChild(commentItem);
+        });
+    }, (error) => {
+        console.error("Error fetching comments: ", error);
+        containerElement.innerHTML = '<p class="error-message-small">Could not load comments.</p>';
+    });
+}
+
+
 
         async function loadDonationLeaderboard() {
             if (!dom.donationLeaderboard) return;
@@ -600,6 +858,7 @@ if (isNative) {
                 dom.appContainer.classList.remove('hidden');
                 dom.authWrapper.classList.add('hidden');
                 initializeMainApp(user.uid);
+                listenForCommunityPosts();
 
             } else {
                 currentUser = null;
@@ -607,6 +866,7 @@ if (isNative) {
                 dom.authWrapper.classList.remove('hidden');
                 dom.appContainer.classList.add('hidden');
                 dom.authLoading.style.display = 'block';
+                if (communityPostsUnsubscribe) communityPostsUnsubscribe();
 
                 if (refCodeFromUrl) {
                     dom.referralCodeInput.value = refCodeFromUrl;
@@ -1523,5 +1783,150 @@ if (treasuryProposalForm) {
         } finally {
             setButtonLoading(submitButton, false);
         }
+    });
+}
+
+
+
+/**
+ * Handles the click event for the "Create Post" button.
+ * Checks user eligibility before showing the form.
+ */
+function handleCreatePostClick() {
+    if (userProfile.kycStatus === 'verified' && userProfile.phxWalletAddress) {
+        dom.communityPostFormContainer.classList.remove('hidden');
+        dom.createCommunityPostBtn.classList.add('hidden');
+    } else {
+        showToastMessage("Post creation requires KYC verification and a registered Stellar wallet.", "error");
+    }
+}
+
+/**
+ * Hides the post creation form and shows the "Create Post" button.
+ */
+function hidePostForm() {
+    dom.communityPostFormContainer.classList.add('hidden');
+    dom.createCommunityPostBtn.classList.remove('hidden');
+    dom.communityPostForm.reset();
+    dom.communityPostFormMessage.textContent = '';
+}
+
+/**
+ * Handles the submission of a new community post.
+ * @param {Event} e The form submission event.
+ */
+async function handlePostSubmit(e) {
+    e.preventDefault();
+    const title = dom.communityPostTitle.value.trim();
+    const content = dom.communityPostContent.value.trim();
+
+    if (!title || !content) {
+        showFormMessage(dom.communityPostFormMessage, "Title and content are required.", "error");
+        return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+        showFormMessage(dom.communityPostFormMessage, "You must be logged in to post.", "error");
+        return;
+    }
+
+    const postButton = dom.communityPostForm.querySelector('button[type="submit"]');
+    postButton.disabled = true;
+    showFormMessage(dom.communityPostFormMessage, "Submitting your post...", "info");
+
+    try {
+        const postsCollection = collection(db, "communityPosts");
+        await addDoc(postsCollection, {
+            title: title,
+            content: content,
+            authorUid: user.uid,
+            authorName: userProfile.displayName || user.email, // Use displayName if available
+            createdAt: serverTimestamp()
+        });
+
+        hidePostForm();
+        showToastMessage("Your post has been published!", "success");
+
+    } catch (error) {
+        console.error("Error creating community post: ", error);
+        showFormMessage(dom.communityPostFormMessage, "An error occurred. Please try again.", "error");
+    } finally {
+        postButton.disabled = false;
+    }
+}
+
+/**
+ * Fetches and renders community posts from Firestore in real-time.
+ */
+function listenForCommunityPosts() {
+    if (communityPostsUnsubscribe) {
+        communityPostsUnsubscribe(); // Detach previous listener
+    }
+
+    const postsCollection = collection(db, "communityPosts");
+    const q = query(postsCollection, orderBy("createdAt", "desc"));
+
+    communityPostsUnsubscribe = onSnapshot(q, (querySnapshot) => {
+        dom.communityPostsListContainer.innerHTML = ''; // Clear the list
+
+        if (querySnapshot.empty) {
+            dom.communityPostsListContainer.innerHTML = '<p>No posts yet. Be the first to start a conversation!</p>';
+            return;
+        }
+
+        querySnapshot.forEach((doc) => {
+            const post = doc.data();
+            const postElement = createCommunityPostElement(post, doc.id);
+            dom.communityPostsListContainer.appendChild(postElement);
+        });
+
+    }, (error) => {
+        console.error("Error fetching community posts: ", error);
+        dom.communityPostsListContainer.innerHTML = '<p class="error-message">Could not load posts. Please try again later.</p>';
+    });
+}
+
+/**
+ * Creates an HTML element for a single community post.
+ * @param {object} post The post data from Firestore.
+ * @param {string} id The document ID of the post.
+ * @returns {HTMLElement} The created div element for the post.
+ */
+function createCommunityPostElement(post, id) {
+    const postItem = document.createElement('div');
+    postItem.className = 'community-post-item';
+    postItem.dataset.id = id;
+
+    const creationDate = post.createdAt ? post.createdAt.toDate().toLocaleString() : 'Just now';
+
+    postItem.innerHTML = `
+        <div class="post-header">
+            <h5 class="post-title">${escapeHTML(post.title)}</h5>
+            <div class="post-meta">
+                by <span class="post-author">${escapeHTML(post.authorName)}</span>
+            </div>
+        </div>
+        <p class="post-content">${escapeHTML(post.content)}</p>
+        <div class="post-footer">
+            <span>${creationDate}</span>
+        </div>
+    `;
+    return postItem;
+}
+
+// We need to call the new initialization functions.
+// Find the `initApp` function and add the new initializers.
+
+// Helper function to escape HTML to prevent XSS attacks
+function escapeHTML(str) {
+    return str.replace(/[&<>"']/g, function(match) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[match];
     });
 }
